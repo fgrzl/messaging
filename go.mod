@@ -7,7 +7,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.11.0
 )
 
-require github.com/fgrzl/claims v0.0.0-20250323163331-a37f7bb53ef3
+require github.com/fgrzl/claims v0.0.0-20250323164204-b3eff8063c51
 
 require (
 	github.com/fgrzl/json v0.0.0-20250314132819-1e13745bbbc6

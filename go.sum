@@ -4,6 +4,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fgrzl/claims v0.0.0-20250323163331-a37f7bb53ef3 h1:ARsqRPPegv9e03lvt/lUcoSSUyB7FJlRVdQGXyRr+r4=
 github.com/fgrzl/claims v0.0.0-20250323163331-a37f7bb53ef3/go.mod h1:PoFYgZTF4mbZlixISlCW5tXwymHusjGf9QAu5Q0FWCU=
+github.com/fgrzl/claims v0.0.0-20250323164204-b3eff8063c51 h1:oD5J85If/i7VRv0PL7QjM0PyUkcMpp9OLk92p6cn+B0=
+github.com/fgrzl/claims v0.0.0-20250323164204-b3eff8063c51/go.mod h1:PoFYgZTF4mbZlixISlCW5tXwymHusjGf9QAu5Q0FWCU=
 github.com/fgrzl/json v0.0.0-20250314132819-1e13745bbbc6 h1:ZteLQUBIBm1djIg0F5qKER4mpuN0Z1paVU9Tv0eORZ0=
 github.com/fgrzl/json v0.0.0-20250314132819-1e13745bbbc6/go.mod h1:L7IAn4wOCSsQGJ44XZePleqf7/tAZPgBDC6A3Egv9e8=
 github.com/google/go-tpm v0.9.3 h1:+yx0/anQuGzi+ssRqeD6WpXjW2L/V0dItUayO0i9sRc=
