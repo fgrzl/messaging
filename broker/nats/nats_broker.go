@@ -22,6 +22,7 @@ func (b *natsBroker) Start() {
 	log := slog.With("component", "broker")
 
 	internalAccount := server.NewAccount("INTERNAL")
+	accountResolver := &server.MemAccResolver{}
 
 	opts := &server.Options{
 		Accounts: []*server.Account{
@@ -34,6 +35,7 @@ func (b *natsBroker) Start() {
 				Account:  internalAccount,
 			},
 		},
+		AccountResolver: accountResolver,
 	}
 
 	useTLS := messaging.GetBrokerUseTLS()
