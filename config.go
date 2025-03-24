@@ -9,14 +9,34 @@ import (
 
 // Define environment variables as constants
 const (
-	FGRZL_TLS_CERT_PATH  = "FGRZL_TLS_CERT_PATH"
-	FGRZL_TLS_KEY_PATH   = "FGRZL_TLS_KEY_PATH"
-	FGRZL_CLIENT_POOLS   = "FGRZL_CLIENT_POOLS"
-	FGRZL_BROKER_PORT    = "FGRZL_BROKER_PORT"
-	FGRZL_BROKER_USE_TLS = "FGRZL_BROKER_USE_TLS"
-	FGRZL_WEB_PORT       = "FGRZL_WEB_PORT"
-	FGRZL_WEB_USE_TLS    = "FGRZL_WEB_USE_TLS"
+	FGRZL_BROKER_INTERNAL_PASSWORD = "FGRZL_BROKER_INTERNAL_PASSWORD"
+	FGRZL_BROKER_INTERNAL_USERNAME = "FGRZL_BROKER_INTERNAL_USERNAME"
+	FGRZL_BROKER_PORT              = "FGRZL_BROKER_PORT"
+	FGRZL_BROKER_USE_TLS           = "FGRZL_BROKER_USE_TLS"
+	FGRZL_CLIENT_POOLS             = "FGRZL_CLIENT_POOLS"
+	FGRZL_TLS_CERT_PATH            = "FGRZL_TLS_CERT_PATH"
+	FGRZL_TLS_KEY_PATH             = "FGRZL_TLS_KEY_PATH"
+	FGRZL_WEB_PORT                 = "FGRZL_WEB_PORT"
+	FGRZL_WEB_USE_TLS              = "FGRZL_WEB_USE_TLS"
 )
+
+// GetBrokerUser returns the value of the FGRZL_BROKER_INTERNAL_USERNAME environment variable
+func GetBrokerUser() string {
+	return os.Getenv(FGRZL_BROKER_INTERNAL_USERNAME)
+}
+
+func SetBrokerUser(value string) error {
+	return os.Setenv(FGRZL_BROKER_INTERNAL_USERNAME, value)
+}
+
+// GetBrokerPassword returns the value of the FGRZL_BROKER_INTERNAL_PASSWORD environment variable
+func GetBrokerPassword() string {
+	return os.Getenv(FGRZL_BROKER_INTERNAL_PASSWORD)
+}
+
+func SetBrokerPassword(value string) error {
+	return os.Setenv(FGRZL_BROKER_INTERNAL_PASSWORD, value)
+}
 
 // GetCertFile returns the value of the FGRZL_TLS_CERT_PATH environment variable
 func GetCertFilePath() string {

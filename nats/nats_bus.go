@@ -1,4 +1,4 @@
-package messaging
+package nats
 
 import (
 	"context"
@@ -17,24 +17,8 @@ var (
 	_ messaging.Subscription = &NATSSubscription{}
 )
 
-// NATSSubscription wraps a NATS subscription.
-type NATSSubscription struct {
-	sub *nats.Subscription
-}
-
-// Unsubscribe removes the subscription from NATS.
-func (s *NATSSubscription) Unsubscribe() error {
-	return s.sub.Unsubscribe()
-}
-
-// natsBus implements the MessageBus interface.
-type natsBus struct {
-	conn *nats.Conn
-}
-
 // NewMessageBus initializes a NATS-backed MessageBus.
-func NewMessageBus() (*natsBus, error) {
-	endpoint := "nats://localhost:4222" // TODO: Move to env variable
+func NewMessageBus(endpoint string) (*natsBus, error) {
 
 	nc, err := nats.Connect(endpoint,
 		nats.UserJWT(func() (string, error) { return "jwt-token", nil }, nil),
@@ -47,6 +31,11 @@ func NewMessageBus() (*natsBus, error) {
 		return nil, err
 	}
 	return &natsBus{conn: nc}, nil
+}
+
+// natsBus implements the MessageBus interface.
+type natsBus struct {
+	conn *nats.Conn
 }
 
 // Notify sends a fire-and-forget event.

@@ -2,7 +2,6 @@ package nats
 
 import (
 	"crypto/tls"
-	"embed"
 	"log/slog"
 	"time"
 
@@ -10,9 +9,6 @@ import (
 	"github.com/fgrzl/messaging/broker"
 	"github.com/nats-io/nats-server/v2/server"
 )
-
-//go:embed nats.conf
-var natsConfig embed.FS
 
 type natsBroker struct {
 	server *server.Server
@@ -25,18 +21,19 @@ func NewBroker() broker.Broker {
 func (b *natsBroker) Start() {
 	log := slog.With("component", "broker")
 
-	// Read the embedded configuration file
-	configData, err := natsConfig.ReadFile("nats.conf")
-	if err != nil {
-		log.Error("Error reading embedded config file", "error", err)
-		return
-	}
+	internalAccount := server.NewAccount("INTERNAL")
 
-	// Parse the configuration options
-	opts, err := server.ProcessConfigFile(string(configData))
-	if err != nil {
-		log.Error("Error processing config file", "error", err)
-		return
+	opts := &server.Options{
+		Accounts: []*server.Account{
+			internalAccount,
+		},
+		Users: []*server.User{
+			{
+				Username: messaging.GetBrokerUser(),
+				Password: messaging.GetBrokerPassword(),
+				Account:  internalAccount,
+			},
+		},
 	}
 
 	useTLS := messaging.GetBrokerUseTLS()
@@ -51,14 +48,13 @@ func (b *natsBroker) Start() {
 			return
 		}
 
-		opts = &server.Options{
-			Websocket: server.WebsocketOpts{
-				Port: port,
-				TLSConfig: &tls.Config{
-					Certificates: []tls.Certificate{cert},
-				},
+		opts.Websocket = server.WebsocketOpts{
+			Port: port,
+			TLSConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
 			},
 		}
+
 	} else {
 		opts = &server.Options{
 			Websocket: server.WebsocketOpts{
