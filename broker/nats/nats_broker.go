@@ -11,31 +11,22 @@ import (
 )
 
 type natsBroker struct {
-	server *server.Server
+	server          *server.Server
+	accountResolver server.AccountResolver
 }
 
 func NewBroker() broker.Broker {
-	return &natsBroker{}
+	return &natsBroker{
+		accountResolver: &server.MemAccResolver{},
+	}
 }
 
 func (b *natsBroker) Start() {
 	log := slog.With("component", "broker")
 
-	internalAccount := server.NewAccount("INTERNAL")
-	accountResolver := &server.MemAccResolver{}
-
 	opts := &server.Options{
-		Accounts: []*server.Account{
-			internalAccount,
-		},
-		Users: []*server.User{
-			{
-				Username: messaging.GetBrokerUser(),
-				Password: messaging.GetBrokerPassword(),
-				Account:  internalAccount,
-			},
-		},
-		AccountResolver: accountResolver,
+		AccountResolver: b.accountResolver,
+		SystemAccount:   messaging.GetBrokerUser(),
 	}
 
 	useTLS := messaging.GetBrokerUseTLS()

@@ -5,3 +5,7 @@ type Broker interface {
 	Stop()
 	Wait()
 }
+
+type BrokerAuth interface {
+	Fetch(clientID string) (string, error)
+}

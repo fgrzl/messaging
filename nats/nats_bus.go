@@ -17,6 +17,25 @@ var (
 	_ messaging.Subscription = &NATSSubscription{}
 )
 
+func NewInternalBus() (messaging.MessageBus, error) {
+	// use the internal user to connect to the NATS broker
+	endpoint := messaging.GetBrokerEndpoint()
+	usr := messaging.GetBrokerUser()
+	pwd := messaging.GetBrokerPassword()
+
+	conn, err := nats.Connect(endpoint,
+		nats.UserInfo(usr, pwd),
+		nats.ReconnectWait(5*time.Second),
+		nats.MaxReconnects(-1),
+	)
+	if err != nil {
+		slog.Error("Failed to connect to NATS", "error", err)
+		return nil, err
+	}
+
+	return &natsBus{conn: conn}
+}
+
 // NewMessageBus initializes a NATS-backed MessageBus.
 func NewMessageBus(endpoint string) (*natsBus, error) {
 

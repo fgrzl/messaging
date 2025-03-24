@@ -11,6 +11,7 @@ import (
 const (
 	FGRZL_BROKER_INTERNAL_PASSWORD = "FGRZL_BROKER_INTERNAL_PASSWORD"
 	FGRZL_BROKER_INTERNAL_USERNAME = "FGRZL_BROKER_INTERNAL_USERNAME"
+	FGRZL_BROKER_ENDPOINTS         = "FGRZL_BROKER_PORT"
 	FGRZL_BROKER_PORT              = "FGRZL_BROKER_PORT"
 	FGRZL_BROKER_USE_TLS           = "FGRZL_BROKER_USE_TLS"
 	FGRZL_CLIENT_POOLS             = "FGRZL_CLIENT_POOLS"
@@ -19,6 +20,15 @@ const (
 	FGRZL_WEB_PORT                 = "FGRZL_WEB_PORT"
 	FGRZL_WEB_USE_TLS              = "FGRZL_WEB_USE_TLS"
 )
+
+// GetBrokerUser returns the value of the FGRZL_BROKER_INTERNAL_USERNAME environment variable
+func GetBrokerEndpoint() string {
+	return os.Getenv(FGRZL_BROKER_ENDPOINTS)
+}
+
+func SetBrokerEndpoints(values ...string) error {
+	return os.Setenv(FGRZL_BROKER_ENDPOINTS, strings.Join(values, ","))
+}
 
 // GetBrokerUser returns the value of the FGRZL_BROKER_INTERNAL_USERNAME environment variable
 func GetBrokerUser() string {
