@@ -33,7 +33,7 @@ func NewInternalBus() (messaging.MessageBus, error) {
 		return nil, err
 	}
 
-	return &natsBus{conn: conn}
+	return &natsBus{conn: conn}, nil
 }
 
 // NewMessageBus initializes a NATS-backed MessageBus.
