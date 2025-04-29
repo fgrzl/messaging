@@ -17,26 +17,26 @@ func RegisterRequestHandler[TRequest Request, TResponse Response](p Processor, h
 	})
 }
 
-func RegisterEventHandler[TEvent Event](p Processor, handler func(context.Context, TEvent) error) {
-	var zero TEvent
-	p.RegisterEventHandler(zero, func(ctx context.Context, msg Event) error {
-		event, ok := msg.(TEvent)
+func RegisterMessageHandler[TMessage Message](p Processor, handler func(context.Context, TMessage) error) {
+	var zero TMessage
+	p.RegisterMessageHandler(zero, func(ctx context.Context, msg Message) error {
+		message, ok := msg.(TMessage)
 		if !ok {
-			panic(fmt.Sprintf("RegisterEventHandler: message %T does not match expected type %T", msg, zero))
+			panic(fmt.Sprintf("RegisterMessageHandler: message %T does not match expected type %T", msg, zero))
 		}
-		return handler(ctx, event)
+		return handler(ctx, message)
 	})
 }
 
 type Processor interface {
-	RegisterEventHandler(Event, EventHandler)
+	RegisterMessageHandler(Message, MessageHandler)
 	RegisterRequestHandler(Request, RequestHandler)
 }
 
 func NewProcessor(bus MessageBus) Processor {
 	return &processorBase{
 		bus:             bus,
-		eventHandlers:   make(map[string]EventHandler),
+		messageHandlers: make(map[string]MessageHandler),
 		requestHandlers: make(map[string]RequestHandler),
 	}
 }
@@ -44,22 +44,21 @@ func NewProcessor(bus MessageBus) Processor {
 type processorBase struct {
 	bus             MessageBus
 	subscriptions   map[string]Subscription
-	eventHandlers   map[string]EventHandler
+	messageHandlers map[string]MessageHandler
 	requestHandlers map[string]RequestHandler
-	queueGroups     map[string]string
 }
 
-func (p *processorBase) RegisterEventHandler(event Event, handler EventHandler) {
-	discriminator := event.GetDiscriminator()
+func (p *processorBase) RegisterMessageHandler(message Message, handler MessageHandler) {
+	discriminator := message.GetDiscriminator()
 
-	if _, exists := p.eventHandlers[discriminator]; exists {
-		panic(fmt.Sprintf("RegisterEventHandler: handler for event %s already exists", discriminator))
+	if _, exists := p.messageHandlers[discriminator]; exists {
+		panic(fmt.Sprintf("RegisterMessageHandler: handler for message %s already exists", discriminator))
 	}
 
-	p.eventHandlers[discriminator] = handler
-	sub, err := p.bus.Subscribe(event.GetRoute(), handler)
+	p.messageHandlers[discriminator] = handler
+	sub, err := p.bus.Subscribe(message.GetRoute(), handler)
 	if err != nil {
-		panic(fmt.Sprintf("RegisterEventHandler: failed to subscribe to event %s: %v", discriminator, err))
+		panic(fmt.Sprintf("RegisterMessageHandler: failed to subscribe to message %s: %v", discriminator, err))
 	}
 	p.subscriptions[discriminator] = sub
 }
@@ -67,8 +66,8 @@ func (p *processorBase) RegisterEventHandler(event Event, handler EventHandler) 
 func (p *processorBase) RegisterRequestHandler(request Request, handler RequestHandler) {
 	discriminator := request.GetDiscriminator()
 
-	if _, exists := p.eventHandlers[discriminator]; exists {
-		panic(fmt.Sprintf("RegisterEventHandler: handler for event %s already exists", discriminator))
+	if _, exists := p.messageHandlers[discriminator]; exists {
+		panic(fmt.Sprintf("RegisterMessageHandler: handler for message %s already exists", discriminator))
 	}
 
 	p.requestHandlers[discriminator] = handler
