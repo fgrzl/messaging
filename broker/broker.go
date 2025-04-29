@@ -1,9 +1,9 @@
 package broker
 
 type Broker interface {
-	Start()
+	Start() error
 	Stop()
-	Wait()
+	WaitForShutdown()
 }
 
 type BrokerAuth interface {

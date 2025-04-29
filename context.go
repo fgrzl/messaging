@@ -6,11 +6,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type contextKey string
+type ContextKey string
 
 const (
-	correlationKey contextKey = "correlation_id"
-	causationKey   contextKey = "causation_id"
+	correlationKey ContextKey = "correlation_id"
+	causationKey   ContextKey = "causation_id"
+	tenantKey      ContextKey = "tenant_id"
 )
 
 func ContextWithTracing(ctx context.Context, correlationID, causationID uuid.UUID) context.Context {
@@ -37,4 +38,16 @@ func GetCausationID(ctx context.Context) uuid.UUID {
 		return v
 	}
 	return uuid.Nil
+}
+
+func GetTenantID(ctx context.Context) uuid.UUID {
+	if v, ok := ctx.Value(tenantKey).(uuid.UUID); ok {
+		return v
+	}
+	return uuid.Nil
+}
+
+func ContextWithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	ctx = context.WithValue(ctx, tenantKey, tenantID)
+	return ctx
 }
