@@ -1,80 +1,80 @@
 package test
 
-// import (
-// 	"context"
-// 	"testing"
-// 	"time"
+import (
+	"context"
+	"testing"
+	"time"
 
-// 	"github.com/fgrzl/json/polymorphic"
-// 	"github.com/fgrzl/messaging"
-// 	server "github.com/fgrzl/messaging/broker/nats"
-// 	client "github.com/fgrzl/messaging/client/nats"
-// 	"github.com/google/uuid"
+	"github.com/fgrzl/json/polymorphic"
+	"github.com/fgrzl/messaging"
+	broker "github.com/fgrzl/messaging/broker/nats"
+	client "github.com/fgrzl/messaging/client/nats"
+	"github.com/stretchr/testify/require"
+)
 
-// 	"github.com/stretchr/testify/require"
-// )
+func init() {
+	polymorphic.Register(func() *TestEvent { return &TestEvent{} })
+}
 
-// // testMessage implements messaging.Message
-// type testMessage struct {
-// 	ID   uuid.UUID `json:"id"`
-// 	Data string    `json:"data"`
-// }
+// TestEvent is a concrete polymorphic message
+type TestEvent struct {
+	Value string `json:"value"`
+}
 
-// func (m *testMessage) GetDiscriminator() string {
-// 	return "testMessage"
-// }
+func (e *TestEvent) GetDiscriminator() string {
+	return "test://event"
+}
 
-// func (m *testMessage) GetRoute() messaging.Route {
-// 	return messaging.Route{
-// 		Scope: messaging.ScopeGlobal,
-// 		Area:  "test",
-// 		Name:  "ping",
-// 	}
-// }
+func (e *TestEvent) GetRoute() messaging.Route {
+	return messaging.NewGlobalRoute("integration", "test")
+}
 
-// func TestNATSBus_NotifyAndReceive(t *testing.T) {
-// 	polymorphic.Register(func() *testMessage { return &testMessage{} })
+func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
+	ctx := context.Background()
 
-// 	options := server.GetDefaultOptions()
-// 	broker := server.NewBroker(options)
-// 	err := broker.Start()
-// 	require.NoError(t, err)
+	mockCreds, err := GenerateMockTrustedOperatorSetup()
+	require.NoError(t, err)
 
-// 	bus1, err := client.NewAnonymousBus("nats://localhost:4222", "dummy-jwt")
-// 	require.NoError(t, err)
+	// Start embedded broker
+	opts := broker.BrokerOptions{
+		AccountJWT:       mockCreds.AccountJWT,
+		OperatorJWT:      mockCreds.OperatorJWT,
+		ReadinessTimeout: 5 * time.Second,
+		WSHost:           "127.0.0.1",
+		WSPort:           9222,
+	}
+	embedded := broker.NewBroker(ctx, opts)
+	err = embedded.Start(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = embedded.Stop(ctx)
+		embedded.WaitForShutdown()
+	})
 
-// 	bus2, err := client.NewAnonymousBus("nats://localhost:4222", "dummy-jwt")
-// 	require.NoError(t, err)
+	// Connect NATS client to embedded broker
+	client, err := client.NewBus("ws://localhost:9222", mockCreds.UserJWT, mockCreds.SignNonce)
+	require.NoError(t, err)
+	defer client.Close()
 
-// 	received := make(chan *testMessage, 1)
+	route := messaging.NewGlobalRoute("integration", "test")
+	received := make(chan string, 1)
 
-// 	_, err = bus1.Subscribe(
-// 		messaging.Route{
-// 			Scope: messaging.ScopeGlobal,
-// 			Area:  "test",
-// 			Name:  "ping",
-// 		}, func(ctx context.Context, msg messaging.Message) error {
-// 			m, ok := msg.(*testMessage)
-// 			require.True(t, ok)
-// 			received <- m
-// 			return nil
-// 		})
-// 	require.NoError(t, err)
+	// Subscribe to a typed message
+	_, err = messaging.Subscribe(client, route, func(ctx context.Context, msg *TestEvent) error {
+		received <- msg.Value
+		return nil
+	})
+	require.NoError(t, err)
 
-// 	err = bus2.Notify(&testMessage{
-// 		ID:   uuid.New(),
-// 		Data: "hello world",
-// 	})
-// 	require.NoError(t, err)
+	// Publish the message
+	err = client.Notify(&TestEvent{Value: "hello world"})
+	require.NoError(t, err)
 
-// 	select {
-// 	case msg := <-received:
-// 		require.Equal(t, "hello world", msg.Data)
-// 	case <-time.After(2 * time.Second):
-// 		t.Fatal("did not receive message in time")
-// 	}
-
-// 	_ = bus1.Close()
-// 	_ = bus2.Close()
-// 	broker.Stop()
-// }
+	// Assert receipt
+	select {
+	case v := <-received:
+		require.Equal(t, "hello world", v)
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not receive message")
+	}
+}
