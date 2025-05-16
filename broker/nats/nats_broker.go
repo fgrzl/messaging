@@ -1,216 +1,230 @@
 package nats
 
 import (
+	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"strconv"
+	"net/url"
 	"time"
 
 	"github.com/fgrzl/messaging/broker"
+	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats-server/v2/server"
-	"github.com/nats-io/nkeys"
 )
 
-// BrokerOptions configures the NATS broker.
-type BrokerOptions struct {
-	WSPort           int           // WebSocket port
-	CertFile         string        // TLS certificate file path
-	KeyFile          string        // TLS key file path
-	EnableTLS        bool          // Enable TLS for WebSocket
-	JWKSURL          string        // JWKS URL for trusted keys
-	ReadinessTimeout time.Duration // Timeout for server readiness
-}
-
-// GetDefaultOptions returns default configuration, pulling from environment variables where applicable.
-func GetDefaultOptions() BrokerOptions {
-	return BrokerOptions{
-		WSPort: func() int {
-			port, err := strconv.Atoi(os.Getenv("NATS_WS_PORT"))
-			if err != nil {
-				return 0 // Default to 0 if parsing fails
-			}
-			return port
-		}(),
-		CertFile:         os.Getenv("NATS_CERT_FILE"),
-		KeyFile:          os.Getenv("NATS_KEY_FILE"),
-		EnableTLS:        os.Getenv("NATS_CERT_FILE") != "" && os.Getenv("NATS_KEY_FILE") != "",
-		JWKSURL:          os.Getenv("BROKER_JWKS_URL"),
-		ReadinessTimeout: 5 * time.Second,
+func NewBroker(ctx context.Context, options BrokerOptions) broker.Broker {
+	options = normalizeOptions(ctx, options)
+	return &NatsBroker{
+		options: options,
 	}
 }
 
-type natsBroker struct {
+type NatsBroker struct {
 	options    BrokerOptions
 	natsServer *server.Server
-	log        *slog.Logger
 }
 
-// NewBroker creates a new NATS broker with validated options.
-func NewBroker(options BrokerOptions) broker.Broker {
-	// Validate options
-	if options.WSPort <= 0 || options.WSPort > 65535 {
-		options.WSPort = 9222
-		slog.Warn("Invalid WSPort, using default", slog.Int("port", options.WSPort))
-	}
-	if options.EnableTLS && (options.CertFile == "" || options.KeyFile == "") {
-		options.EnableTLS = false
-		slog.Warn("Disabling TLS: missing cert or key file")
-	}
-	if options.ReadinessTimeout < time.Second {
-		options.ReadinessTimeout = 5 * time.Second
-		slog.Warn("ReadinessTimeout too short, using default", slog.Duration("timeout", options.ReadinessTimeout))
+func (b *NatsBroker) Start(ctx context.Context) error {
+	opts := &server.Options{Port: -1} // Disable TCP
+	if err := configureWebSocket(opts, b.options); err != nil {
+		return err
 	}
 
-	return &natsBroker{
-		options: options,
-		log:     slog.With("component", "broker"),
+	opClaims, err := resolveOperatorClaims(ctx, b.options)
+	if err != nil {
+		return err
 	}
-}
+	opts.TrustedOperators = opClaims
 
-// Start initializes and starts the NATS server.
-func (b *natsBroker) Start() error {
-	opts := &server.Options{
-		Port: -1, // Disable TCP — WS/WSS only
+	accResolver, err := buildAccountResolver(b.options.AccountJWT, b.options.OperatorJWTURL)
+	if err != nil {
+		return err
 	}
+	opts.AccountResolver = accResolver
 
-	// Configure WebSocket with optional TLS
-	if b.options.EnableTLS {
-		cert, err := tls.LoadX509KeyPair(b.options.CertFile, b.options.KeyFile)
-		if err != nil {
-			return fmt.Errorf("load TLS cert: %w", err)
-		}
-		opts.Websocket = server.WebsocketOpts{
-			Port: b.options.WSPort,
-			TLSConfig: &tls.Config{
-				Certificates: []tls.Certificate{cert},
-				MinVersion:   tls.VersionTLS12,
-				CipherSuites: []uint16{
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				},
-			},
-		}
-	} else {
-		opts.Websocket = server.WebsocketOpts{
-			Port:  b.options.WSPort,
-			NoTLS: true,
-		}
-	}
-
-	// Load trusted keys from JWKS URL
-	if b.options.JWKSURL != "" {
-		trustedKeys, err := b.fetchTrustedKeys()
-		if err != nil {
-			return fmt.Errorf("fetch trusted keys: %w", err)
-		}
-		opts.TrustedKeys = trustedKeys
-		b.log.Info("Fetched trusted keys", slog.Int("count", len(trustedKeys)))
-	}
-
-	natsServer, err := server.NewServer(opts)
+	ns, err := server.NewServer(opts)
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)
 	}
+	b.natsServer = ns
+	ns.Start()
 
-	b.natsServer = natsServer
-	natsServer.Start()
-
-	if !natsServer.ReadyForConnections(b.options.ReadinessTimeout) {
-		return errors.New("NATS server readiness timeout")
+	if !ns.ReadyForConnections(b.options.ReadinessTimeout) {
+		return fmt.Errorf("NATS server readiness timeout")
 	}
 
-	b.log.Info("NATS broker started",
+	slog.Info("NATS broker started",
 		slog.Int("websocket_port", b.options.WSPort),
 		slog.Bool("tls_enabled", b.options.EnableTLS),
-		slog.String("jwks_url", b.options.JWKSURL),
 	)
-
 	return nil
 }
 
-// Stop initiates a graceful shutdown of the NATS server.
-func (b *natsBroker) Stop() {
+func (b *NatsBroker) Stop(ctx context.Context) error {
+	if b.natsServer == nil {
+		return nil
+	}
+	slog.Info("Stopping NATS broker")
+	ctx, cancel := context.WithTimeout(ctx, b.options.ShutdownTimeout)
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		b.natsServer.Shutdown()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		slog.InfoContext(ctx, "NATS broker stopped")
+	case <-ctx.Done():
+		slog.WarnContext(ctx, "NATS broker shutdown timed out")
+	}
+	return nil
+}
+
+func (b *NatsBroker) WaitForShutdown() {
 	if b.natsServer != nil {
-		b.log.Info("Stopping NATS broker")
-		// Shutdown server with timeout
-		done := make(chan struct{})
-		go func() {
-			b.natsServer.Shutdown()
-			close(done)
-		}()
-		select {
-		case <-done:
-			b.log.Info("NATS broker stopped")
-		case <-time.After(10 * time.Second):
-			b.log.Warn("NATS broker shutdown timed out")
+		slog.Info("Waiting for NATS broker shutdown")
+		b.natsServer.WaitForShutdown()
+		slog.Info("NATS broker shutdown complete")
+	}
+}
+
+func normalizeOptions(ctx context.Context, opt BrokerOptions) BrokerOptions {
+	if opt.WSPort <= 0 || opt.WSPort > 65535 {
+		opt.WSPort = 9222
+		slog.WarnContext(ctx, "Invalid WSPort, using default", slog.Int("port", opt.WSPort))
+	}
+	if opt.EnableTLS && (opt.CertFile == "" || opt.KeyFile == "") {
+		opt.EnableTLS = false
+		slog.WarnContext(ctx, "Disabling TLS: missing cert or key file")
+	}
+	if opt.ReadinessTimeout < time.Second {
+		opt.ReadinessTimeout = 5 * time.Second
+		slog.WarnContext(ctx, "ReadinessTimeout too short, using default", slog.Duration("timeout", opt.ReadinessTimeout))
+	}
+	if opt.ShutdownTimeout < time.Second {
+		opt.ShutdownTimeout = 10 * time.Second
+		slog.WarnContext(ctx, "ShutdownTimeout too short, using default", slog.Duration("timeout", opt.ShutdownTimeout))
+	}
+	if opt.OperatorJWTURL != "" {
+		if _, err := url.Parse(opt.OperatorJWTURL); err != nil {
+			slog.WarnContext(ctx, "Invalid OperatorJWTURL, ignoring", slog.String("url", opt.OperatorJWTURL))
+			opt.OperatorJWTURL = ""
 		}
 	}
+	return opt
 }
 
-// WaitForShutdown waits for the NATS server to fully shut down.
-func (b *natsBroker) WaitForShutdown() {
-	if b.natsServer != nil {
-		b.log.Info("Waiting for NATS broker shutdown")
-		b.natsServer.WaitForShutdown()
-		b.log.Info("NATS broker shutdown complete")
+func configureWebSocket(opts *server.Options, options BrokerOptions) error {
+	if options.EnableTLS {
+		tlsConfig, err := loadTLS(options.CertFile, options.KeyFile)
+		if err != nil {
+			return fmt.Errorf("load TLS config: %w", err)
+		}
+		opts.Websocket = server.WebsocketOpts{
+			Port:      options.WSPort,
+			Host:      options.WSHost,
+			TLSConfig: tlsConfig,
+		}
+	} else {
+		opts.Websocket = server.WebsocketOpts{
+			Port:  options.WSPort,
+			NoTLS: true,
+		}
 	}
+	return nil
 }
 
-// fetchTrustedKeys retrieves and validates trusted keys from the JWKS URL with retries.
-func (b *natsBroker) fetchTrustedKeys() ([]string, error) {
+func extractAccountPublicKey(jwtStr string) (string, error) {
+	claims, err := jwt.DecodeAccountClaims(jwtStr)
+	if err != nil {
+		return "", err
+	}
+	return claims.Subject, nil
+}
+
+func resolveOperatorClaims(ctx context.Context, options BrokerOptions) ([]*jwt.OperatorClaims, error) {
+	if options.OperatorJWTURL != "" {
+		return fetchTrustedOperators(ctx, options.OperatorJWTURL)
+	} else if options.OperatorJWT != "" {
+		claim, err := jwt.DecodeOperatorClaims(options.OperatorJWT)
+		if err != nil {
+			return nil, fmt.Errorf("decode operator JWT: %w", err)
+		}
+		return []*jwt.OperatorClaims{claim}, nil
+	}
+	return nil, fmt.Errorf("no trusted operator claims provided")
+}
+
+func buildAccountResolver(accountJWT, accountJWTURL string) (server.AccountResolver, error) {
+	if accountJWT != "" {
+		accPub, err := extractAccountPublicKey(accountJWT)
+		if err != nil {
+			return nil, fmt.Errorf("invalid account JWT: %w", err)
+		}
+
+		resolver := &server.MemAccResolver{}
+		if err := resolver.Store(accPub, accountJWT); err != nil {
+			return nil, fmt.Errorf("store account JWT in memory resolver: %w", err)
+		}
+		return resolver, nil
+
+	} else if accountJWTURL != "" {
+		return server.NewURLAccResolver(accountJWTURL)
+
+	}
+	return nil, errors.New("no account resolver configured: either AccountJWT or AccountJWTURL must be provided")
+}
+
+func loadTLS(certFile, keyFile string) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		Certificates:             []tls.Certificate{cert},
+		MinVersion:               tls.VersionTLS12,
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		},
+	}, nil
+}
+
+func fetchTrustedOperators(ctx context.Context, url string) ([]*jwt.OperatorClaims, error) {
 	const maxRetries = 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		resp, err := http.Get(b.options.JWKSURL)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			defer resp.Body.Close()
-			var keys struct {
-				TrustedKeys []string `json:"trusted_keys"`
-			}
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("read response: %w", err)
-			}
-			if err := json.Unmarshal(body, &keys); err != nil {
-				return nil, fmt.Errorf("parse JWKS: %w", err)
-			}
-
-			var valid []string
-			for _, k := range keys.TrustedKeys {
-				// Validate NATS public key
-				if _, err := nkeys.FromPublicKey(k); err == nil {
-					valid = append(valid, k)
-				} else {
-					b.log.Warn("Skipping invalid trusted key",
-						slog.String("key", k),
-						slog.String("error", err.Error()))
-				}
-			}
-			if len(valid) == 0 {
-				return nil, errors.New("no valid trusted keys found")
-			}
-			return valid, nil
-		}
-		if resp != nil {
-			resp.Body.Close()
-		}
-		logAttrs := []any{slog.Int("attempt", attempt)}
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			logAttrs = append(logAttrs, slog.String("error", err.Error()))
-		} else {
-			logAttrs = append(logAttrs, slog.Int("status", resp.StatusCode))
-		}
-		b.log.Warn("JWKS fetch attempt failed", logAttrs...)
-		if attempt < maxRetries {
+			slog.WarnContext(ctx, "Trusted operator fetch failed", slog.Int("attempt", attempt), slog.String("error", err.Error()))
 			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
 		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			slog.WarnContext(ctx, "Trusted operator fetch failed", slog.Int("attempt", attempt), slog.String("status", resp.Status))
+			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read operator JWT: %w", err)
+		}
+		opClaims, err := jwt.DecodeOperatorClaims(string(body))
+		if err != nil {
+			return nil, fmt.Errorf("decode operator claims: %w", err)
+		}
+		slog.Info("Fetched trusted operator", slog.String("issuer", opClaims.Issuer), slog.String("name", opClaims.Name))
+		return []*jwt.OperatorClaims{opClaims}, nil
 	}
-	return nil, fmt.Errorf("failed to fetch trusted keys after %d attempts", maxRetries)
+	return nil, fmt.Errorf("failed to fetch trusted operator JWT from %s after %d attempts", url, maxRetries)
 }

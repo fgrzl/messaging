@@ -18,29 +18,13 @@ var (
 	_ messaging.Subscription = &NATSSubscription{}
 )
 
-// NewInternalBus connects using internal credentials (from messaging config).
-func NewInternalBus() (messaging.MessageBus, error) {
-	return connectWithOptions(
-		messaging.GetBrokerEndpoint(),
-		nats.UserInfo(messaging.GetBrokerUser(), messaging.GetBrokerPassword()),
-	)
-}
-
-// NewMessageBus connects using a signed JWT and signature callback.
-func NewMessageBus(endpoint string) (messaging.MessageBus, error) {
+func NewBus(endpoint string, jwt string, signFn func([]byte) ([]byte, error)) (messaging.MessageBus, error) {
 	return connectWithOptions(
 		endpoint,
-		nats.UserJWT(func() (string, error) {
-			return "jwt-token", nil // replace with actual token resolver
-		}, nil),
-	)
-}
-
-// NewAnonymousBus connects using a JWT for anonymous identity.
-func NewAnonymousBus(endpoint, jwt string) (messaging.MessageBus, error) {
-	return connectWithOptions(
-		endpoint,
-		nats.UserJWT(func() (string, error) { return jwt, nil }, nil),
+		nats.UserJWT(
+			func() (string, error) { return jwt, nil },
+			signFn,
+		),
 	)
 }
 

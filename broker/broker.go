@@ -1,8 +1,10 @@
 package broker
 
+import "context"
+
 type Broker interface {
-	Start() error
-	Stop()
+	Start(context.Context) error
+	Stop(context.Context) error
 	WaitForShutdown()
 }
 
