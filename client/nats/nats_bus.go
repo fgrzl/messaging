@@ -206,8 +206,8 @@ func (b *natsBus) Close() error {
 func toSubj(r messaging.Route) string {
 	if r.Scope == messaging.ScopeTenant {
 		tenantID := "*"
-		if r.TenantID != nil {
-			tenantID = r.TenantID.String()
+		if r.ID != nil {
+			tenantID = r.ID.String()
 		}
 		return fmt.Sprintf("%s.%s.%s.%s", r.Scope, tenantID, r.Area, r.Name)
 	}
