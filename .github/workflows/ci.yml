@@ -40,4 +40,4 @@ jobs:
         run: go test ./... -v -coverprofile=coverage.out
 
       - name: Workflow Cleanup
-        uses: fgrzl/workflow-cleanup@v1
+        uses: fgrzl/workflow-cleanup@v2
