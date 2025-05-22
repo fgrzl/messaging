@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+type MessageBusFactory interface {
+	Get(ctx context.Context) (MessageBus, error)
+}
+
 // MessageBus defines a unified interface for pub-sub and request-response messaging.
 type MessageBus interface {
 	// Notify sends a one-way message (fire-and-forget).
