@@ -2,11 +2,13 @@ package nats
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"net/url"
 	"time"
@@ -29,7 +31,11 @@ type NatsBroker struct {
 }
 
 func (b *NatsBroker) Start(ctx context.Context) error {
-	opts := &server.Options{Port: -1} // Disable TCP
+	opts := &server.Options{
+		Port:     -1,                    // Disable TCP
+		HTTPPort: b.options.MonitorPort, // Enable http monitoring (e.g. /healthz)
+	}
+
 	if err := configureWebSocket(opts, b.options); err != nil {
 		return err
 	}
@@ -58,7 +64,7 @@ func (b *NatsBroker) Start(ctx context.Context) error {
 	}
 
 	slog.Info("NATS broker started",
-		slog.Int("websocket_port", b.options.WSPort),
+		slog.Int("websocket_port", b.options.WebSocketPort),
 		slog.Bool("tls_enabled", b.options.EnableTLS),
 	)
 	return nil
@@ -68,36 +74,15 @@ func (b *NatsBroker) Stop(ctx context.Context) error {
 	if b.natsServer == nil {
 		return nil
 	}
-	slog.Info("Stopping NATS broker")
-	ctx, cancel := context.WithTimeout(ctx, b.options.ShutdownTimeout)
-	defer cancel()
-	done := make(chan struct{})
-	go func() {
-		b.natsServer.Shutdown()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		slog.InfoContext(ctx, "NATS broker stopped")
-	case <-ctx.Done():
-		slog.WarnContext(ctx, "NATS broker shutdown timed out")
-	}
+	b.natsServer.Shutdown()
+	b.natsServer.WaitForShutdown()
 	return nil
 }
 
-func (b *NatsBroker) WaitForShutdown() {
-	if b.natsServer != nil {
-		slog.Info("Waiting for NATS broker shutdown")
-		b.natsServer.WaitForShutdown()
-		slog.Info("NATS broker shutdown complete")
-	}
-}
-
 func normalizeOptions(ctx context.Context, opt BrokerOptions) BrokerOptions {
-	if opt.WSPort <= 0 || opt.WSPort > 65535 {
-		opt.WSPort = 9222
-		slog.WarnContext(ctx, "Invalid WSPort, using default", slog.Int("port", opt.WSPort))
+	if opt.WebSocketPort <= 0 || opt.WebSocketPort > 65535 {
+		opt.WebSocketPort = 9222
+		slog.WarnContext(ctx, "Invalid WSPort, using default", slog.Int("port", opt.WebSocketPort))
 	}
 	if opt.EnableTLS && (opt.CertFile == "" || opt.KeyFile == "") {
 		opt.EnableTLS = false
@@ -127,13 +112,13 @@ func configureWebSocket(opts *server.Options, options BrokerOptions) error {
 			return fmt.Errorf("load TLS config: %w", err)
 		}
 		opts.Websocket = server.WebsocketOpts{
-			Port:      options.WSPort,
-			Host:      options.WSHost,
+			Port:      options.WebSocketPort,
+			Host:      options.Host,
 			TLSConfig: tlsConfig,
 		}
 	} else {
 		opts.Websocket = server.WebsocketOpts{
-			Port:  options.WSPort,
+			Port:  options.WebSocketPort,
 			NoTLS: true,
 		}
 	}
@@ -200,31 +185,67 @@ func loadTLS(certFile, keyFile string) (*tls.Config, error) {
 }
 
 func fetchTrustedOperators(ctx context.Context, url string) ([]*jwt.OperatorClaims, error) {
-	const maxRetries = 3
+	const (
+		maxRetries    = 5
+		initialDelay  = 500 * time.Millisecond
+		backoffFactor = 2.0
+		jitterRange   = 250 * time.Millisecond
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+
+	delay := initialDelay
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			slog.WarnContext(ctx, "Trusted operator fetch failed", slog.Int("attempt", attempt), slog.String("error", err.Error()))
-			time.Sleep(time.Duration(attempt) * time.Second)
-			continue
+			slog.WarnContext(ctx, "Failed to fetch operator JWT",
+				slog.Int("attempt", attempt),
+				slog.String("error", err.Error()))
+		} else {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return nil, fmt.Errorf("read operator JWT: %w", err)
+				}
+				opClaims, err := jwt.DecodeOperatorClaims(string(body))
+				if err != nil {
+					return nil, fmt.Errorf("decode operator claims: %w", err)
+				}
+				slog.Info("Fetched trusted operator",
+					slog.String("issuer", opClaims.Issuer),
+					slog.String("name", opClaims.Name))
+				return []*jwt.OperatorClaims{opClaims}, nil
+			}
+			slog.WarnContext(ctx, "Unexpected status from operator JWT endpoint",
+				slog.Int("attempt", attempt),
+				slog.Int("status", resp.StatusCode))
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			slog.WarnContext(ctx, "Trusted operator fetch failed", slog.Int("attempt", attempt), slog.String("status", resp.Status))
-			time.Sleep(time.Duration(attempt) * time.Second)
-			continue
+
+		// Check context before sleeping
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(delay + time.Duration(jitter(jitterRange))):
+			delay = time.Duration(float64(delay) * backoffFactor)
 		}
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("read operator JWT: %w", err)
-		}
-		opClaims, err := jwt.DecodeOperatorClaims(string(body))
-		if err != nil {
-			return nil, fmt.Errorf("decode operator claims: %w", err)
-		}
-		slog.Info("Fetched trusted operator", slog.String("issuer", opClaims.Issuer), slog.String("name", opClaims.Name))
-		return []*jwt.OperatorClaims{opClaims}, nil
 	}
+
 	return nil, fmt.Errorf("failed to fetch trusted operator JWT from %s after %d attempts", url, maxRetries)
+}
+
+func jitter(max time.Duration) time.Duration {
+	if max <= 0 {
+		return 0
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		// Fallback to no jitter on failure — shouldn't happen
+		return 0
+	}
+	return time.Duration(n.Int64())
 }

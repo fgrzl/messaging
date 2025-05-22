@@ -8,74 +8,72 @@ import (
 )
 
 const (
-	envWSHost           = "NATS_WS_HOST"
-	envWSPort           = "NATS_WS_PORT"
-	envCertFile         = "NATS_CERT_FILE"
-	envKeyFile          = "NATS_KEY_FILE"
-	envOperatorJWT      = "NATS_OPERATOR_JWT"
-	envOperatorJWTURL   = "NATS_OPERATOR_JWT_URL"
-	envAccountJWT       = "NATS_ACCOUNT_JWT"
-	envAccountJWTURL    = "NATS_ACCOUNT_JWT_URL"
-	envReadinessTimeout = "NATS_READINESS_TIMEOUT"
-	envShutdownTimeout  = "NATS_SHUTDOWN_TIMEOUT"
+	envHost             = "BROKER_HOST"
+	envWebSocketPort    = "BROKER_WEB_SOCKET_PORT"
+	envMonitorPort      = "BROKER_MONITOR_PORT"
+	envCertFile         = "BROKER_CERT_FILE"
+	envKeyFile          = "BROKER_KEY_FILE"
+	envOperatorJWT      = "BROKER_OPERATOR_JWT"
+	envOperatorJWTURL   = "BROKER_OPERATOR_JWT_URL"
+	envAccountJWT       = "BROKER_ACCOUNT_JWT"
+	envAccountJWTURL    = "BROKER_ACCOUNT_JWT_URL"
+	envReadinessTimeout = "BROKER_READINESS_TIMEOUT"
+	envShutdownTimeout  = "BROKER_SHUTDOWN_TIMEOUT"
 )
 
 // BrokerOptions configures the embedded NATS broker.
 // Values can be loaded from the following environment variables.
 type BrokerOptions struct {
-	// WSHost defines the address to bind the WebSocket listener (default: "localhost").
-	// Environment: NATS_WS_HOST
-	WSHost string
+	// Host defines the address to bind the WebSocket listener (default: "localhost").
+	// Environment: BROKER_HOST
+	Host string
 
-	// WSPort defines the port for the WebSocket listener (default: 9222).
-	// Environment: NATS_WS_PORT
-	WSPort int
+	// WebSocketPort defines the port for the WebSocket listener (default: 9222).
+	// Environment: BROKER_WEB_SOCKET_PORT
+	WebSocketPort int
+
+	// MonitorPort defines the port for the WebSocket listener (default: 8222).
+	// Environment: BROKER_HTTP_PORT
+	MonitorPort int
 
 	// CertFile specifies the path to the TLS certificate file.
-	// Environment: NATS_CERT_FILE
+	// Environment: BROKER_CERT_FILE
 	CertFile string
 
 	// KeyFile specifies the path to the TLS private key file.
-	// Environment: NATS_KEY_FILE
+	// Environment: BROKER_KEY_FILE
 	KeyFile string
 
 	// EnableTLS enables TLS if both CertFile and KeyFile are provided.
 	EnableTLS bool
 
 	// OperatorJWT provides an inline operator JWT used to establish trust.
-	// Environment: NATS_OPERATOR_JWT
+	// Environment: BROKER_OPERATOR_JWT
 	OperatorJWT string
 
 	// OperatorJWTURL specifies a URL to fetch the operator JWT dynamically.
-	// Environment: NATS_OPERATOR_JWT_URL
+	// Environment: BROKER_OPERATOR_JWT_URL
 	OperatorJWTURL string
 
 	// AccountJWT provides an inline account JWT for in-memory resolution.
-	// Environment: NATS_ACCOUNT_JWT
+	// Environment: BROKER_ACCOUNT_JWT
 	AccountJWT string
 
 	// AccountJWTURL specifies a URL-based account resolver.
-	// Environment: NATS_ACCOUNT_JWT_URL
+	// Environment: BROKER_ACCOUNT_JWT_URL
 	AccountJWTURL string
 
 	// ReadinessTimeout defines how long to wait for the server to become ready.
-	// Environment: NATS_READINESS_TIMEOUT (e.g., "5s")
+	// Environment: BROKER_READINESS_TIMEOUT (e.g., "5s")
 	ReadinessTimeout time.Duration
 
 	// ShutdownTimeout defines how long to wait for graceful shutdown.
-	// Environment: NATS_SHUTDOWN_TIMEOUT (e.g., "10s")
+	// Environment: BROKER_SHUTDOWN_TIMEOUT (e.g., "10s")
 	ShutdownTimeout time.Duration
 }
 
 // GetDefaultOptions returns default configuration from environment variables.
 func GetDefaultOptions() BrokerOptions {
-	port := 9222
-	if p := os.Getenv(envWSPort); p != "" {
-		if parsed, err := strconv.Atoi(p); err == nil {
-			port = parsed
-		}
-	}
-
 	certFile := os.Getenv(envCertFile)
 	keyFile := os.Getenv(envKeyFile)
 	enableTLS := certFile != "" && keyFile != ""
@@ -95,8 +93,9 @@ func GetDefaultOptions() BrokerOptions {
 	}
 
 	return BrokerOptions{
-		WSHost:           getEnvOrDefault(envWSHost, "localhost"),
-		WSPort:           port,
+		Host:             getEnvOrDefault(envHost, "localhost"),
+		WebSocketPort:    getEnvOrDefaultInt(envWebSocketPort, 9222),
+		MonitorPort:      getEnvOrDefaultInt(envMonitorPort, 8222),
 		CertFile:         certFile,
 		KeyFile:          keyFile,
 		EnableTLS:        enableTLS,
@@ -119,7 +118,7 @@ func MustGetDefaultOptions() BrokerOptions {
 }
 
 // Validate checks that required configuration is present.
-func (b BrokerOptions) Validate() error {
+func (b *BrokerOptions) Validate() error {
 	if b.EnableTLS && (b.CertFile == "" || b.KeyFile == "") {
 		return errors.New("EnableTLS is true but cert or key file is missing")
 	}
@@ -135,6 +134,15 @@ func (b BrokerOptions) Validate() error {
 func getEnvOrDefault(key, fallback string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
+	}
+	return fallback
+}
+
+func getEnvOrDefaultInt(key string, fallback int) int {
+	if p := os.Getenv(key); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil {
+			return parsed
+		}
 	}
 	return fallback
 }
