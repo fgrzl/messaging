@@ -5,6 +5,7 @@ import (
 
 	"github.com/fgrzl/claims"
 	"github.com/fgrzl/json/polymorphic"
+	"github.com/fgrzl/lexkey"
 )
 
 // MessageContext wraps a context and includes user claims for authorization-aware handlers.
@@ -86,4 +87,13 @@ type DurableQueueMessage interface {
 type SubscriptionOpts struct {
 	// QueueGroup is the queue group name for load-balanced delivery.
 	QueueGroup string
+}
+
+type PageResult struct {
+	Items   []polymorphic.Envelope `json:"items"`
+	NextKey lexkey.LexKey          `json:"next_key,omitempty"`
+}
+
+func (obj *PageResult) GetDiscriminator() string {
+	return "messaging://api/v1/page_result"
 }
