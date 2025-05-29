@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	github.com/fgrzl/claims v0.0.1-alpha.4
+	github.com/fgrzl/claims v0.0.1-alpha.12
 	github.com/stretchr/testify v1.10.0
 )
 
