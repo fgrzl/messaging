@@ -8,6 +8,7 @@ import (
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/messaging"
 	broker "github.com/fgrzl/messaging/broker/nats"
+	"github.com/fgrzl/messaging/busx"
 	client "github.com/fgrzl/messaging/client/nats"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +41,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 		AccountJWT:       mockCreds.AccountJWT,
 		OperatorJWT:      mockCreds.OperatorJWT,
 		ReadinessTimeout: 5 * time.Second,
-		Host:             "127.0.0.1",
+		Host:             "localhost",
 		WebSocketPort:    9222,
 	}
 	embedded := broker.NewBroker(ctx, opts)
@@ -59,7 +60,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 	received := make(chan string, 1)
 
 	// Subscribe to a typed message
-	_, err = messaging.Subscribe(client, route, func(ctx context.Context, msg *TestEvent) error {
+	_, err = busx.Subscribe(client, route, func(ctx context.Context, msg *TestEvent) error {
 		received <- msg.Value
 		return nil
 	})
