@@ -11,9 +11,8 @@ type MockJWTSetup struct {
 	OperatorJWT string
 	AccountJWT  string
 	AccountPub  string
-	UserJWT     string
-	UserPubKey  string
-	SignNonce   func(nonce []byte) ([]byte, error)
+	GetJWT      func() (string, error)
+	SignFn      func(nonce []byte) ([]byte, error)
 }
 
 func GenerateMockTrustedOperatorSetup() (*MockJWTSetup, error) {
@@ -40,23 +39,20 @@ func GenerateMockTrustedOperatorSetup() (*MockJWTSetup, error) {
 	// User
 	userKP, _ := nkeys.CreateUser()
 	userPub, _ := userKP.PublicKey()
-	userClaims := jwt.NewUserClaims(userPub)
-	userClaims.Issuer = accountPub
-	userClaims.Name = "test-user"
-	userClaims.IssuedAt = time.Now().Unix()
-	userClaims.Expires = time.Now().Add(time.Hour).Unix()
-	userJWT, err := userClaims.Encode(accountKP)
-	if err != nil {
-		return nil, err
-	}
 
 	return &MockJWTSetup{
 		OperatorJWT: operatorJWT,
 		AccountJWT:  accountJWT,
 		AccountPub:  accountPub,
-		UserJWT:     userJWT,
-		UserPubKey:  userPub,
-		SignNonce: func(nonce []byte) ([]byte, error) {
+		GetJWT: func() (string, error) {
+			userClaims := jwt.NewUserClaims(userPub)
+			userClaims.Issuer = accountPub
+			userClaims.Name = "test-user"
+			userClaims.IssuedAt = time.Now().Unix()
+			userClaims.Expires = time.Now().Add(time.Hour).Unix()
+			return userClaims.Encode(accountKP)
+		},
+		SignFn: func(nonce []byte) ([]byte, error) {
 			return userKP.Sign(nonce)
 		},
 	}, nil

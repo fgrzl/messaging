@@ -18,11 +18,11 @@ var (
 	_ messaging.Subscription = &NATSSubscription{}
 )
 
-func NewBus(endpoint string, jwt string, signFn func([]byte) ([]byte, error)) (messaging.MessageBus, error) {
+func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) ([]byte, error)) (messaging.MessageBus, error) {
 	return connectWithOptions(
 		endpoint,
 		nats.UserJWT(
-			func() (string, error) { return jwt, nil },
+			getJWT,
 			signFn,
 		),
 	)

@@ -52,7 +52,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 	})
 
 	// Connect NATS client to embedded broker
-	client, err := client.NewBus("ws://localhost:9222", mockCreds.UserJWT, mockCreds.SignNonce)
+	client, err := client.NewBus("ws://localhost:9222", mockCreds.GetJWT, mockCreds.SignFn)
 	require.NoError(t, err)
 	defer client.Close()
 
