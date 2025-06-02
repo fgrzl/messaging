@@ -34,6 +34,7 @@ func (b *NatsBroker) Start(ctx context.Context) error {
 	opts := &server.Options{
 		Port:     -1,                    // Disable TCP
 		HTTPPort: b.options.MonitorPort, // Enable http monitoring (e.g. /healthz)
+		HTTPHost: b.options.Host,
 	}
 
 	if err := configureWebSocket(opts, b.options); err != nil {
@@ -119,6 +120,7 @@ func configureWebSocket(opts *server.Options, options BrokerOptions) error {
 	} else {
 		opts.Websocket = server.WebsocketOpts{
 			Port:  options.WebSocketPort,
+			Host:  options.Host,
 			NoTLS: true,
 		}
 	}
