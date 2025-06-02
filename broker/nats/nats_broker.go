@@ -32,7 +32,7 @@ type NatsBroker struct {
 
 func (b *NatsBroker) Start(ctx context.Context) error {
 	opts := &server.Options{
-		Port:     -1,                    // Disable TCP
+		Host:     b.options.Host,
 		HTTPPort: b.options.MonitorPort, // Enable http monitoring (e.g. /healthz)
 		HTTPHost: b.options.Host,
 	}

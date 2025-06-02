@@ -41,6 +41,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 		AccountJWT:       mockCreds.AccountJWT,
 		OperatorJWT:      mockCreds.OperatorJWT,
 		ReadinessTimeout: 5 * time.Second,
+		ShutdownTimeout:  10 * time.Second,
 		Host:             "localhost",
 		WebSocketPort:    9222,
 	}
