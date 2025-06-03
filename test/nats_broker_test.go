@@ -7,9 +7,9 @@ import (
 
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/messaging"
-	broker "github.com/fgrzl/messaging/broker/nats"
+	broker "github.com/fgrzl/messaging/broker/natskit"
 	"github.com/fgrzl/messaging/busx"
-	client "github.com/fgrzl/messaging/client/nats"
+	client "github.com/fgrzl/messaging/client/natskit"
 	"github.com/stretchr/testify/require"
 )
 
