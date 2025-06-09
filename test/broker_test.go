@@ -7,9 +7,11 @@ import (
 
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/messaging"
-	broker "github.com/fgrzl/messaging/broker/natskit"
-	"github.com/fgrzl/messaging/busx"
-	client "github.com/fgrzl/messaging/client/natskit"
+
+	"github.com/fgrzl/messaging/pkg/busx"
+	"github.com/fgrzl/messaging/pkg/natsbroker"
+	"github.com/fgrzl/messaging/pkg/natsbus"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +39,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start embedded broker
-	opts := broker.BrokerOptions{
+	opts := natsbroker.BrokerOptions{
 		AccountJWT:       mockCreds.AccountJWT,
 		OperatorJWT:      mockCreds.OperatorJWT,
 		ReadinessTimeout: 5 * time.Second,
@@ -45,7 +47,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 		Host:             "localhost",
 		WebSocketPort:    9222,
 	}
-	embedded := broker.NewBroker(ctx, opts)
+	embedded := natsbroker.NewBroker(ctx, opts)
 	err = embedded.Start(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -53,7 +55,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 	})
 
 	// Connect NATS client to embedded broker
-	client, err := client.NewBus("ws://localhost:9222", mockCreds.GetJWT, mockCreds.SignFn)
+	client, err := natsbus.NewBus("ws://localhost:9222", mockCreds.GetJWT, mockCreds.SignFn)
 	require.NoError(t, err)
 	defer client.Close()
 

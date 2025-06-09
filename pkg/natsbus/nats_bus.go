@@ -1,4 +1,4 @@
-package natskit
+package natsbus
 
 import (
 	"context"

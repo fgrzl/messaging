@@ -1,4 +1,4 @@
-package natskit
+package natsclaims
 
 import (
 	"encoding/json"
@@ -11,37 +11,26 @@ import (
 	"github.com/nats-io/jwt/v2"
 )
 
-type Permissions struct {
-	Pub struct {
-		Allow []string `json:"allow,omitempty"`
-		Deny  []string `json:"deny,omitempty"`
-	} `json:"pub"`
-	Sub struct {
-		Allow []string `json:"allow,omitempty"`
-		Deny  []string `json:"deny,omitempty"`
-	} `json:"sub"`
-}
-
-func SetPermissions(cs claims.ClaimSet, p Permissions) {
+func SetPermissions(cs *claims.ClaimSet, p jwt.Permissions) {
 	b, _ := json.Marshal(p) // intentionally ignoring error
 	cs.Set("nats.permissions", string(b))
 }
 
-func GetPermissions(cs claims.ClaimSet) (Permissions, error) {
+func GetPermissions(cs *claims.ClaimSet) (jwt.Permissions, error) {
 	rawClaim, ok := cs.Get("nats.permissions")
 	if !ok {
-		return Permissions{}, errors.New("nats.permissions not found")
+		return jwt.Permissions{}, errors.New("nats.permissions not found")
 	}
-	var p Permissions
+	var p jwt.Permissions
 	err := json.Unmarshal([]byte(rawClaim.Value()), &p)
 	return p, err
 }
 
-func SetUserPub(cs claims.ClaimSet, userPub string) {
+func SetUserPub(cs *claims.ClaimSet, userPub string) {
 	cs.Set("nats.user_pub", userPub)
 }
 
-func GetUserPub(cs claims.ClaimSet) (string, error) {
+func GetUserPub(cs *claims.ClaimSet) (string, error) {
 	claim, ok := cs.Get("nats.user_pub")
 	if !ok {
 		return "", errors.New("nats.user_pub not found")
@@ -49,11 +38,11 @@ func GetUserPub(cs claims.ClaimSet) (string, error) {
 	return claim.Value(), nil
 }
 
-func SetTags(cs claims.ClaimSet, tags ...string) {
+func SetTags(cs *claims.ClaimSet, tags ...string) {
 	cs.Set("nats.tags", strings.Join(tags, ","))
 }
 
-func GetTags(cs claims.ClaimSet) []string {
+func GetTags(cs *claims.ClaimSet) []string {
 	claim, ok := cs.Get("nats.tags")
 	if !ok {
 		return make([]string, 0)
@@ -61,7 +50,7 @@ func GetTags(cs claims.ClaimSet) []string {
 	return claim.Values(",")
 }
 
-func ToUserClaims(claimSet claims.ClaimSet, accountPub string) (*jwt.UserClaims, error) {
+func ToUserClaims(claimSet *claims.ClaimSet, accountPub string) (*jwt.UserClaims, error) {
 
 	userPub, err := GetUserPub(claimSet)
 	if err != nil {

@@ -1,4 +1,4 @@
-package natskit
+package natsbroker
 
 import (
 	"errors"

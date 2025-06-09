@@ -1,4 +1,4 @@
-package natskit
+package natsbroker
 
 import (
 	"context"
@@ -13,12 +13,12 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/fgrzl/messaging/broker"
+	"github.com/fgrzl/messaging"
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats-server/v2/server"
 )
 
-func NewBroker(ctx context.Context, options BrokerOptions) broker.Broker {
+func NewBroker(ctx context.Context, options BrokerOptions) messaging.Broker {
 	options = normalizeOptions(ctx, options)
 	return &NatsBroker{
 		options: options,
