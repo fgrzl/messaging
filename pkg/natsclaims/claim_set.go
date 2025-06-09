@@ -74,16 +74,7 @@ func ToUserClaims(claimSet *claims.ClaimSet, accountPub string) (*jwt.UserClaims
 		return userClaims, err
 	}
 
-	userClaims.Permissions = jwt.Permissions{
-		Pub: jwt.Permission{
-			Allow: permissions.Pub.Allow,
-			Deny:  permissions.Pub.Deny,
-		},
-		Sub: jwt.Permission{
-			Allow: permissions.Sub.Allow,
-			Deny:  permissions.Sub.Deny,
-		},
-	}
+	userClaims.Permissions = permissions
 
 	return userClaims, nil
 }
