@@ -12,13 +12,13 @@ func RegisterMessageHandler[TMessage Message](
 	p Processor,
 	route Route,
 	handler func(context.Context, TMessage) error,
-) {
+) error {
 	sub, err := Subscribe(p.GetBus(), route, handler)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	p.Attach(sub)
-
+	return nil
 }
 
 // RegisterRequestHandler is a generic helper to safely cast and register request handlers.
@@ -26,13 +26,13 @@ func RegisterRequestHandler[TRequest Request, TResponse Response](
 	p Processor,
 	route Route,
 	handler func(context.Context, TRequest) (TResponse, error),
-) {
+) error {
 	sub, err := SubscribeRequest(p.GetBus(), route, handler)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	p.Attach(sub)
-
+	return nil
 }
 
 type Processor interface {
