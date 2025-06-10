@@ -8,7 +8,6 @@ import (
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/messaging"
 
-	"github.com/fgrzl/messaging/pkg/busx"
 	"github.com/fgrzl/messaging/pkg/natsbroker"
 	"github.com/fgrzl/messaging/pkg/natsbus"
 
@@ -63,7 +62,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 	received := make(chan string, 1)
 
 	// Subscribe to a typed message
-	_, err = busx.Subscribe(client, route, func(ctx context.Context, msg *TestEvent) error {
+	_, err = messaging.Subscribe(client, route, func(ctx context.Context, msg *TestEvent) error {
 		received <- msg.Value
 		return nil
 	})
