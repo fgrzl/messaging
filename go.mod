@@ -9,7 +9,7 @@ require (
 
 require (
 	github.com/fgrzl/claims v0.0.1-alpha.15
-	github.com/fgrzl/lexkey v0.1.0-alpha.14
+	github.com/fgrzl/lexkey v0.1.0-alpha.15
 	github.com/stretchr/testify v1.10.0
 )
 
@@ -22,7 +22,7 @@ require (
 )
 
 require (
-	github.com/fgrzl/json v0.0.0-20250514205914-77c559a7b06d
+	github.com/fgrzl/json v0.0.1-alpha.29
 	github.com/google/go-tpm v0.9.5 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/minio/highwayhash v1.0.3 // indirect
