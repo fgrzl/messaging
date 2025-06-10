@@ -36,6 +36,8 @@ func RegisterMessageHandler[TMessage Message](
 }
 
 type Processor interface {
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
 	RegisterMessageHandler(Message, MessageHandler)
 	RegisterRequestHandler(Request, RequestHandler)
 }
@@ -54,6 +56,31 @@ type processorBase struct {
 	subscriptions   map[string]Subscription
 	messageHandlers map[string]MessageHandler
 	requestHandlers map[string]RequestHandler
+}
+
+// Start implements Processor.
+func (p *processorBase) Start(ctx context.Context) error {
+	return nil
+}
+
+func (p *processorBase) Stop(ctx context.Context) error {
+	var errs []error
+
+	// Unsubscribe all active subscriptions
+	for key, sub := range p.subscriptions {
+		if err := sub.Unsubscribe(); err != nil {
+			errs = append(errs, fmt.Errorf("unsubscribe failed for %s: %w", key, err))
+		}
+	}
+	// Clear handler maps
+	p.subscriptions = nil
+	p.messageHandlers = nil
+	p.requestHandlers = nil
+
+	if len(errs) > 0 {
+		return fmt.Errorf("processor stop encountered errors: %v", errs)
+	}
+	return nil
 }
 
 func (p *processorBase) RegisterMessageHandler(msg Message, handler MessageHandler) {
@@ -84,24 +111,4 @@ func (p *processorBase) RegisterRequestHandler(req Request, handler RequestHandl
 
 	p.requestHandlers[discriminator] = handler
 	p.subscriptions[discriminator] = sub
-}
-
-func (p *processorBase) Stop(ctx context.Context) error {
-	var errs []error
-
-	// Unsubscribe all active subscriptions
-	for key, sub := range p.subscriptions {
-		if err := sub.Unsubscribe(); err != nil {
-			errs = append(errs, fmt.Errorf("unsubscribe failed for %s: %w", key, err))
-		}
-	}
-	// Clear handler maps
-	p.subscriptions = nil
-	p.messageHandlers = nil
-	p.requestHandlers = nil
-
-	if len(errs) > 0 {
-		return fmt.Errorf("processor stop encountered errors: %v", errs)
-	}
-	return nil
 }
