@@ -6,6 +6,7 @@ import (
 	"github.com/fgrzl/claims"
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/lexkey"
+	"github.com/google/uuid"
 )
 
 // MessageContext wraps a context and includes user claims for authorization-aware handlers.
@@ -71,6 +72,8 @@ func (e *Accepted) GetDiscriminator() string {
 
 // Subscription represents an active subscription that can be unsubscribed.
 type Subscription interface {
+	// The subscribtion ID
+	GetID() uuid.UUID
 	// Unsubscribe cancels the subscription and releases any related resources.
 	Unsubscribe() error
 }

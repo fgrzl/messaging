@@ -15,7 +15,7 @@ import (
 
 var (
 	_ messaging.MessageBus   = &natsBus{}
-	_ messaging.Subscription = &NATSSubscription{}
+	_ messaging.Subscription = &subscription{}
 )
 
 func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) ([]byte, error)) (messaging.MessageBus, error) {
@@ -131,7 +131,7 @@ func (b *natsBus) SubscribeWithOptions(route messaging.Route, handler messaging.
 		return nil, err
 	}
 
-	return &NATSSubscription{sub: sub}, nil
+	return &subscription{sub: sub}, nil
 }
 
 func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.RequestHandler) (messaging.Subscription, error) {
@@ -146,7 +146,7 @@ func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.Requ
 		return nil, err
 	}
 
-	return &NATSSubscription{sub: sub}, nil
+	return &subscription{sub: sub}, nil
 }
 
 func (b *natsBus) handleMessage(msg *nats.Msg, handler messaging.MessageHandler) {
