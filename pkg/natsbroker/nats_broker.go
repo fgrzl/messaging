@@ -47,7 +47,7 @@ func (b *NatsBroker) Start(ctx context.Context) error {
 	}
 	opts.TrustedOperators = opClaims
 
-	accResolver, err := buildAccountResolver(b.options.AccountJWT, b.options.OperatorJWTURL)
+	accResolver, err := buildAccountResolver(b.options.AccountJWT, b.options.AccountJWTURL)
 	if err != nil {
 		return err
 	}
@@ -101,6 +101,12 @@ func normalizeOptions(ctx context.Context, opt BrokerOptions) BrokerOptions {
 		if _, err := url.Parse(opt.OperatorJWTURL); err != nil {
 			slog.WarnContext(ctx, "Invalid OperatorJWTURL, ignoring", slog.String("url", opt.OperatorJWTURL))
 			opt.OperatorJWTURL = ""
+		}
+	}
+	if opt.AccountJWTURL != "" {
+		if _, err := url.Parse(opt.AccountJWTURL); err != nil {
+			slog.WarnContext(ctx, "Invalid AccountJWTURL, ignoring", slog.String("url", opt.AccountJWTURL))
+			opt.AccountJWTURL = ""
 		}
 	}
 	return opt
