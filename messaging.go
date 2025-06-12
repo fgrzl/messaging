@@ -59,6 +59,15 @@ func (e *ErrorResponse) GetDiscriminator() string {
 	return "messaging://api/v1/err_response"
 }
 
+type BoolResult struct {
+	Value bool `json:"value"`
+}
+
+// GetDiscriminator returns the type identifier for Accepted.
+func (e *BoolResult) GetDiscriminator() string {
+	return "messaging://api/v1/bool_result"
+}
+
 // Accepted represents a successful but content-less acknowledgment.
 type Accepted struct {
 	// Reason is an optional explanation for the acceptance (e.g., "queued", "acknowledged").
