@@ -22,7 +22,7 @@ require (
 )
 
 require (
-	github.com/fgrzl/json v0.0.1-alpha.29
+	github.com/fgrzl/json v0.0.1-alpha.38
 	github.com/google/go-tpm v0.9.5 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/minio/highwayhash v1.0.3 // indirect
