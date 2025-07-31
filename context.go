@@ -8,14 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// MessageContext wraps a context and includes user claims for authorization-aware handlers.
-type MessageContext struct {
-	context.Context
-
-	// User represents the authenticated principal associated with this message.
-	User claims.Principal
-}
-
 // SerializablePrincipal represents the serializable fields of a Principal
 // This is used for serializing user principal data in message headers
 type SerializablePrincipal struct {
@@ -224,25 +216,11 @@ func MustGetCausationID(ctx context.Context) uuid.UUID {
 }
 
 // GetUserPrincipal retrieves the user principal from context.
-// Works with both context.Context and *MessageContext types.
 // Returns the principal and a boolean indicating if it was found.
 func GetUserPrincipal(ctx context.Context) (claims.Principal, bool) {
-	// Check if it's a MessageContext first
-	if msgCtx, ok := ctx.(*MessageContext); ok {
-		if msgCtx.User != nil {
-			return msgCtx.User, true
-		}
-		// Fall back to checking the wrapped context
-		ctx = msgCtx.Context
+	if v, exists := ctx.Value(userKey).(claims.Principal); exists {
+		return v, true
 	}
-
-	// Check if it's a regular context
-	if c, ok := ctx.(context.Context); ok {
-		if v, exists := c.Value(userKey).(claims.Principal); exists {
-			return v, true
-		}
-	}
-
 	return nil, false
 }
 
@@ -258,12 +236,4 @@ func MustGetUserPrincipal(ctx context.Context) claims.Principal {
 // ContextWithUserPrincipal adds a user principal to the context.
 func ContextWithUserPrincipal(ctx context.Context, user claims.Principal) context.Context {
 	return context.WithValue(ctx, userKey, user)
-}
-
-// NewMessageContext creates a new MessageContext with the given context and user principal.
-func NewMessageContext(ctx context.Context, user claims.Principal) *MessageContext {
-	return &MessageContext{
-		Context: ctx,
-		User:    user,
-	}
 }

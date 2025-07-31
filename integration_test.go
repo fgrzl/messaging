@@ -51,19 +51,17 @@ func TestIntegrationUsagePatterns(t *testing.T) {
 		correlationID := uuid.New()
 		causationID := uuid.New()
 
-		msgCtx := NewMessageContext(
-			ContextWithTracing(context.Background(), correlationID, causationID),
-			user,
-		)
+		ctx := ContextWithTracing(context.Background(), correlationID, causationID)
+		ctx = ContextWithUserPrincipal(ctx, user)
 
 		// Act & Assert - use Must variants when you expect values to be present
-		retrievedUser := MustGetUserPrincipal(msgCtx)
+		retrievedUser := MustGetUserPrincipal(ctx)
 		assert.Equal(t, "user456", retrievedUser.Subject())
 
-		retrievedCorrID := MustGetCorrelationID(msgCtx)
+		retrievedCorrID := MustGetCorrelationID(ctx)
 		assert.Equal(t, correlationID, retrievedCorrID)
 
-		retrievedCausID := MustGetCausationID(msgCtx)
+		retrievedCausID := MustGetCausationID(ctx)
 		assert.Equal(t, causationID, retrievedCausID)
 	})
 
@@ -77,8 +75,9 @@ func TestIntegrationUsagePatterns(t *testing.T) {
 		regularCtx := ContextWithTracing(context.Background(), correlationID, causationID)
 		regularCtx = ContextWithUserPrincipal(regularCtx, user)
 
-		// Convert to MessageContext
-		msgCtx := NewMessageContext(regularCtx, user)
+		// Create another context with the same values
+		sameCtx := ContextWithTracing(context.Background(), correlationID, causationID)
+		sameCtx = ContextWithUserPrincipal(sameCtx, user)
 
 		// Act & Assert - both should work the same way
 
@@ -91,14 +90,14 @@ func TestIntegrationUsagePatterns(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, correlationID.String(), regularCorrStr)
 
-		// Test with MessageContext
-		msgUser, ok := GetUserPrincipal(msgCtx)
+		// Test with same context
+		sameUser, ok := GetUserPrincipal(sameCtx)
 		require.True(t, ok)
-		assert.Equal(t, "user789", msgUser.Subject())
+		assert.Equal(t, "user789", sameUser.Subject())
 
-		msgCorrStr, ok := GetCorrelationIDString(msgCtx)
+		sameCorrStr, ok := GetCorrelationIDString(sameCtx)
 		require.True(t, ok)
-		assert.Equal(t, correlationID.String(), msgCorrStr)
+		assert.Equal(t, correlationID.String(), sameCorrStr)
 	})
 
 	t.Run("ShouldHandleGracefullyWhenValuesAreMissing", func(t *testing.T) {
@@ -144,14 +143,11 @@ func TestBackwardCompatibility(t *testing.T) {
 		user := &MockPrincipal{SubjectValue: "test"}
 		ctx := context.Background()
 
-		// Act - create MessageContext the old way
-		msgCtx := &MessageContext{
-			Context: ctx,
-			User:    user,
-		}
+		// Act - use standard context with user principal
+		ctxWithUser := ContextWithUserPrincipal(ctx, user)
 
-		// Assert - new helpers should work with existing structure
-		retrievedUser, ok := GetUserPrincipal(msgCtx)
+		// Assert - helpers should work with standard context
+		retrievedUser, ok := GetUserPrincipal(ctxWithUser)
 		require.True(t, ok)
 		assert.Equal(t, user, retrievedUser)
 	})

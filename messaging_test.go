@@ -30,27 +30,10 @@ func (m *MockPrincipal) CustomClaimValue(name string) string  { return "" }
 func (m *MockPrincipal) Claims() *claims.ClaimSet             { return nil }
 
 func TestGetUserPrincipal(t *testing.T) {
-	t.Run("ShouldReturnUserWhenFoundInMessageContext", func(t *testing.T) {
-		// Arrange
-		user := &MockPrincipal{SubjectValue: "test-user"}
-		msgCtx := &MessageContext{
-			Context: context.Background(),
-			User:    user,
-		}
-
-		// Act
-		result, ok := GetUserPrincipal(msgCtx)
-
-		// Assert
-		assert.True(t, ok)
-		assert.Equal(t, user, result)
-		assert.Equal(t, "test-user", result.Subject())
-	})
-
 	t.Run("ShouldReturnUserWhenFoundInRegularContext", func(t *testing.T) {
 		// Arrange
 		user := &MockPrincipal{SubjectValue: "test-user"}
-		ctx := context.WithValue(context.Background(), ContextKey("user_principal"), user)
+		ctx := ContextWithUserPrincipal(context.Background(), user)
 
 		// Act
 		result, ok := GetUserPrincipal(ctx)
@@ -72,54 +55,16 @@ func TestGetUserPrincipal(t *testing.T) {
 		assert.False(t, ok)
 		assert.Nil(t, result)
 	})
-
-	t.Run("ShouldReturnFalseWhenMessageContextUserIsNil", func(t *testing.T) {
-		// Arrange
-		msgCtx := &MessageContext{
-			Context: context.Background(),
-			User:    nil,
-		}
-
-		// Act
-		result, ok := GetUserPrincipal(msgCtx)
-
-		// Assert
-		assert.False(t, ok)
-		assert.Nil(t, result)
-	})
-
-	t.Run("ShouldPreferMessageContextUserOverContextValue", func(t *testing.T) {
-		// Arrange
-		contextUser := &MockPrincipal{SubjectValue: "context-user"}
-		messageUser := &MockPrincipal{SubjectValue: "message-user"}
-
-		ctx := context.WithValue(context.Background(), ContextKey("user_principal"), contextUser)
-		msgCtx := &MessageContext{
-			Context: ctx,
-			User:    messageUser,
-		}
-
-		// Act
-		result, ok := GetUserPrincipal(msgCtx)
-
-		// Assert
-		assert.True(t, ok)
-		assert.Equal(t, messageUser, result)
-		assert.Equal(t, "message-user", result.Subject())
-	})
 }
 
 func TestMustGetUserPrincipal(t *testing.T) {
 	t.Run("ShouldReturnUserWhenFound", func(t *testing.T) {
 		// Arrange
 		user := &MockPrincipal{SubjectValue: "test-user"}
-		msgCtx := &MessageContext{
-			Context: context.Background(),
-			User:    user,
-		}
+		ctx := ContextWithUserPrincipal(context.Background(), user)
 
 		// Act
-		result := MustGetUserPrincipal(msgCtx)
+		result := MustGetUserPrincipal(ctx)
 
 		// Assert
 		assert.Equal(t, user, result)
@@ -151,39 +96,5 @@ func TestContextWithUserPrincipal(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, user, retrievedUser)
 		assert.Equal(t, "test-user", retrievedUser.Subject())
-	})
-}
-
-func TestNewMessageContext(t *testing.T) {
-	t.Run("ShouldCreateMessageContextWithUserAndContext", func(t *testing.T) {
-		// Arrange
-		user := &MockPrincipal{SubjectValue: "test-user"}
-		ctx := context.Background()
-
-		// Act
-		result := NewMessageContext(ctx, user)
-
-		// Assert
-		assert.NotNil(t, result)
-		assert.Equal(t, ctx, result.Context)
-		assert.Equal(t, user, result.User)
-
-		// Verify GetUserPrincipal works with the created context
-		retrievedUser, ok := GetUserPrincipal(result)
-		require.True(t, ok)
-		assert.Equal(t, user, retrievedUser)
-	})
-
-	t.Run("ShouldAllowNilUser", func(t *testing.T) {
-		// Arrange
-		ctx := context.Background()
-
-		// Act
-		result := NewMessageContext(ctx, nil)
-
-		// Assert
-		assert.NotNil(t, result)
-		assert.Equal(t, ctx, result.Context)
-		assert.Nil(t, result.User)
 	})
 }
