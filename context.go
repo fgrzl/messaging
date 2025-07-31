@@ -216,36 +216,10 @@ func MustGetCausationID(ctx context.Context) uuid.UUID {
 	panic("causation ID not found in context")
 }
 
-// MessageContext wraps a context.Context with additional message-specific data.
-type MessageContext struct {
-	Context context.Context
-	User    claims.Principal
-}
-
-// Value implements the context.Context interface, delegating to the wrapped context.
-func (mc *MessageContext) Value(key interface{}) interface{} {
-	return mc.Context.Value(key)
-}
-
-// Deadline implements the context.Context interface, delegating to the wrapped context.
-func (mc *MessageContext) Deadline() (deadline time.Time, ok bool) {
-	return mc.Context.Deadline()
-}
-
-// Done implements the context.Context interface, delegating to the wrapped context.
-func (mc *MessageContext) Done() <-chan struct{} {
-	return mc.Context.Done()
-}
-
-// Err implements the context.Context interface, delegating to the wrapped context.
-func (mc *MessageContext) Err() error {
-	return mc.Context.Err()
-}
-
 // GetUserPrincipal retrieves the user principal from context.
 // Works with both context.Context and *MessageContext types.
 // Returns the principal and a boolean indicating if it was found.
-func GetUserPrincipal(ctx interface{}) (claims.Principal, bool) {
+func GetUserPrincipal(ctx context.Context) (claims.Principal, bool) {
 	// Check if it's a MessageContext first
 	if msgCtx, ok := ctx.(*MessageContext); ok {
 		if msgCtx.User != nil {
@@ -267,7 +241,7 @@ func GetUserPrincipal(ctx interface{}) (claims.Principal, bool) {
 
 // MustGetUserPrincipal retrieves the user principal from context.
 // Panics if the user principal is not found.
-func MustGetUserPrincipal(ctx interface{}) claims.Principal {
+func MustGetUserPrincipal(ctx context.Context) claims.Principal {
 	if user, ok := GetUserPrincipal(ctx); ok {
 		return user
 	}
