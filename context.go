@@ -3,11 +3,18 @@ package messaging
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/fgrzl/claims"
 	"github.com/google/uuid"
 )
+
+// MessageContext wraps a context and includes user claims for authorization-aware handlers.
+type MessageContext struct {
+	context.Context
+
+	// User represents the authenticated principal associated with this message.
+	User claims.Principal
+}
 
 // SerializablePrincipal represents the serializable fields of a Principal
 // This is used for serializing user principal data in message headers
