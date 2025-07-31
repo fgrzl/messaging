@@ -6,8 +6,6 @@ github.com/fgrzl/claims v0.0.1-alpha.15 h1:FmKiM79vkMPILrZTUGcmM+C5zkpZEC3NpbGzl
 github.com/fgrzl/claims v0.0.1-alpha.15/go.mod h1:sN7zr8FIiKmESWghf+BuKvPpliLMUjkeQp93S/Z/imE=
 github.com/fgrzl/json v0.1.0-alpha.40 h1:xX0LQAxwtNUvjToDBJd0HM9atOOamq5eo/BOAHga53s=
 github.com/fgrzl/json v0.1.0-alpha.40/go.mod h1:uhY90IO9L/wJ4qXdqHBS0PLC14YlwrpUMU8O2D9YGxQ=
-github.com/fgrzl/lexkey v0.1.0-alpha.32 h1:8UMk/VnYRl4ZRFAeJLcCdrL5VpGikiDcWAMnzzCSpOU=
-github.com/fgrzl/lexkey v0.1.0-alpha.32/go.mod h1:DfrNX28YpZvrxyDm+jYQ6Jv2pJbZxQoMS1dcBSwBv58=
 github.com/google/go-tpm v0.9.5 h1:ocUmnDebX54dnW+MQWGQRbdaAcJELsa6PqZhJ48KwVU=
 github.com/google/go-tpm v0.9.5/go.mod h1:h9jEsEECg7gtLis0upRBQU+GhYVH6jMjrFxI8u6bVUY=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
