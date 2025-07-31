@@ -47,7 +47,7 @@ type Processor interface {
 	Attach(Subscription)
 }
 
-// NewProcessor creates a new processor instance with the given message bus.
+// NewProcessor returns a new processor instance with the given message bus.
 func NewProcessor(bus MessageBus) Processor {
 	return &processorBase{
 		bus:           bus,

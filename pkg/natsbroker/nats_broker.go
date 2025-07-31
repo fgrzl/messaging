@@ -18,7 +18,7 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 )
 
-// NewBroker creates a new NATS broker with the specified options.
+// NewBroker returns a new NATS broker with the specified options.
 func NewBroker(ctx context.Context, options BrokerOptions) messaging.Broker {
 	options = normalizeOptions(ctx, options)
 	return &NatsBroker{

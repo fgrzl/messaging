@@ -6,7 +6,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// NewSubscription creates a new messaging.Subscription wrapper around a NATS subscription.
+// NewSubscription returns a new messaging.Subscription wrapper around a NATS subscription.
 func NewSubscription(sub *nats.Subscription) messaging.Subscription {
 	return &subscription{
 		id:  uuid.New(),

@@ -18,7 +18,7 @@ var (
 	_ messaging.Subscription = &subscription{}
 )
 
-// NewBus creates a new NATS message bus connection with JWT-based authentication.
+// NewBus returns a new NATS message bus connection with JWT-based authentication.
 func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) ([]byte, error)) (messaging.MessageBus, error) {
 	return connectWithOptions(
 		endpoint,
