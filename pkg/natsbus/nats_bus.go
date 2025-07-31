@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/messaging"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 )
 
@@ -234,11 +234,29 @@ func decodeMessage[T polymorphic.Polymorphic](data []byte) (T, error) {
 func contextFromMsg(msg *nats.Msg) context.Context {
 	ctx := context.Background()
 	if msg.Header != nil {
+		// Handle correlation ID
 		if val := msg.Header.Get("X-Correlation-ID"); val != "" {
-			ctx = context.WithValue(ctx, messaging.CorrelationID("CorrelationID"), val)
+			if correlationID, err := uuid.Parse(val); err == nil {
+				ctx = messaging.ContextWithTracing(ctx, correlationID, uuid.Nil)
+			}
 		}
+
+		// Handle causation ID
 		if val := msg.Header.Get("X-Causation-ID"); val != "" {
-			ctx = context.WithValue(ctx, messaging.CausationID("CausationID"), val)
+			if causationID, err := uuid.Parse(val); err == nil {
+				// If we already have correlation ID, preserve it
+				correlationID := messaging.GetCorrelationID(ctx)
+				ctx = messaging.ContextWithTracing(ctx, correlationID, causationID)
+			}
+		}
+
+		// Handle user principal
+		if val := msg.Header.Get("X-User-Principal"); val != "" {
+			if user, err := messaging.DeserializePrincipal(val); err == nil {
+				ctx = messaging.ContextWithUserPrincipal(ctx, user)
+			} else {
+				slog.Warn("Failed to deserialize user principal", "error", err)
+			}
 		}
 	}
 	return ctx
@@ -246,11 +264,27 @@ func contextFromMsg(msg *nats.Msg) context.Context {
 
 func messageHeadersFromContext(ctx context.Context) nats.Header {
 	h := nats.Header{}
-	if cid, ok := ctx.Value(messaging.CorrelationID("CorrelationID")).(string); ok && strings.TrimSpace(cid) != "" {
-		h.Set("X-Correlation-ID", cid)
+
+	// Handle correlation ID
+	correlationID := messaging.GetCorrelationID(ctx)
+	if correlationID != uuid.Nil {
+		h.Set("X-Correlation-ID", correlationID.String())
 	}
-	if caus, ok := ctx.Value(messaging.CausationID("CausationID")).(string); ok && strings.TrimSpace(caus) != "" {
-		h.Set("X-Causation-ID", caus)
+
+	// Handle causation ID
+	causationID := messaging.GetCausationID(ctx)
+	if causationID != uuid.Nil {
+		h.Set("X-Causation-ID", causationID.String())
 	}
+
+	// Handle user principal
+	if user, ok := messaging.GetUserPrincipal(ctx); ok {
+		if serialized, err := messaging.SerializePrincipal(user); err == nil {
+			h.Set("X-User-Principal", serialized)
+		} else {
+			slog.Warn("Failed to serialize user principal", "error", err)
+		}
+	}
+
 	return h
 }
