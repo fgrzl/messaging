@@ -59,11 +59,12 @@ func (e *ErrorResponse) GetDiscriminator() string {
 	return "messaging://api/v1/err_response"
 }
 
+// BoolResult represents a simple boolean response value.
 type BoolResult struct {
 	Value bool `json:"value"`
 }
 
-// GetDiscriminator returns the type identifier for Accepted.
+// GetDiscriminator returns the type identifier for BoolResult.
 func (e *BoolResult) GetDiscriminator() string {
 	return "messaging://api/v1/bool_result"
 }
@@ -81,7 +82,7 @@ func (e *Accepted) GetDiscriminator() string {
 
 // Subscription represents an active subscription that can be unsubscribed.
 type Subscription interface {
-	// The subscribtion ID
+	// GetID returns the subscription ID.
 	GetID() uuid.UUID
 	// Unsubscribe cancels the subscription and releases any related resources.
 	Unsubscribe() error
@@ -101,11 +102,13 @@ type SubscriptionOpts struct {
 	QueueGroup string
 }
 
+// PageResult represents a paginated collection of items with an optional continuation key.
 type PageResult struct {
 	Items   []polymorphic.Envelope `json:"items"`
 	NextKey lexkey.LexKey          `json:"next_key,omitempty"`
 }
 
+// GetDiscriminator returns the type identifier for PageResult.
 func (obj *PageResult) GetDiscriminator() string {
 	return "messaging://api/v1/page_result"
 }

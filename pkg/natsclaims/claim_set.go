@@ -11,11 +11,13 @@ import (
 	"github.com/nats-io/jwt/v2"
 )
 
+// SetPermissions stores NATS permissions in a claim set.
 func SetPermissions(cs *claims.ClaimSet, p jwt.Permissions) {
 	b, _ := json.Marshal(p) // intentionally ignoring error
 	cs.Set("nats.permissions", string(b))
 }
 
+// GetPermissions retrieves NATS permissions from a claim set.
 func GetPermissions(cs *claims.ClaimSet) (jwt.Permissions, error) {
 	rawClaim, ok := cs.Get("nats.permissions")
 	if !ok {
@@ -26,10 +28,12 @@ func GetPermissions(cs *claims.ClaimSet) (jwt.Permissions, error) {
 	return p, err
 }
 
+// SetUserPub stores a NATS user public key in a claim set.
 func SetUserPub(cs *claims.ClaimSet, userPub string) {
 	cs.Set("nats.user_pub", userPub)
 }
 
+// GetUserPub retrieves a NATS user public key from a claim set.
 func GetUserPub(cs *claims.ClaimSet) (string, error) {
 	claim, ok := cs.Get("nats.user_pub")
 	if !ok {
@@ -38,10 +42,12 @@ func GetUserPub(cs *claims.ClaimSet) (string, error) {
 	return claim.Value(), nil
 }
 
+// SetTags stores NATS tags in a claim set.
 func SetTags(cs *claims.ClaimSet, tags ...string) {
 	cs.Set("nats.tags", strings.Join(tags, ","))
 }
 
+// GetTags retrieves NATS tags from a claim set.
 func GetTags(cs *claims.ClaimSet) []string {
 	claim, ok := cs.Get("nats.tags")
 	if !ok {
@@ -50,6 +56,7 @@ func GetTags(cs *claims.ClaimSet) []string {
 	return claim.Values(",")
 }
 
+// ToUserClaims converts a ClaimSet to NATS UserClaims for authentication.
 func ToUserClaims(claimSet *claims.ClaimSet, accountPub string) (*jwt.UserClaims, error) {
 
 	userPub, err := GetUserPub(claimSet)

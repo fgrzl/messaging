@@ -18,6 +18,7 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 )
 
+// NewBroker returns a new NATS broker with the specified options.
 func NewBroker(ctx context.Context, options BrokerOptions) messaging.Broker {
 	options = normalizeOptions(ctx, options)
 	return &NatsBroker{
@@ -25,11 +26,13 @@ func NewBroker(ctx context.Context, options BrokerOptions) messaging.Broker {
 	}
 }
 
+// NatsBroker implements the Broker interface using an embedded NATS server.
 type NatsBroker struct {
 	options    BrokerOptions
 	natsServer *server.Server
 }
 
+// Start initializes and starts the embedded NATS server.
 func (b *NatsBroker) Start(ctx context.Context) error {
 	opts := &server.Options{
 		Host:     b.options.Host,
@@ -71,6 +74,7 @@ func (b *NatsBroker) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop gracefully shuts down the embedded NATS server.
 func (b *NatsBroker) Stop(ctx context.Context) error {
 	if b.natsServer == nil {
 		return nil
