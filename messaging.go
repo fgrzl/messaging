@@ -3,19 +3,9 @@ package messaging
 import (
 	"context"
 
-	"github.com/fgrzl/claims"
 	"github.com/fgrzl/json/polymorphic"
-	"github.com/fgrzl/lexkey"
 	"github.com/google/uuid"
 )
-
-// MessageContext wraps a context and includes user claims for authorization-aware handlers.
-type MessageContext struct {
-	context.Context
-
-	// User represents the authenticated principal associated with this message.
-	User claims.Principal
-}
 
 // CorrelationID is used to associate related messages across systems.
 type CorrelationID string
@@ -100,15 +90,4 @@ type DurableQueueMessage interface {
 type SubscriptionOpts struct {
 	// QueueGroup is the queue group name for load-balanced delivery.
 	QueueGroup string
-}
-
-// PageResult represents a paginated collection of items with an optional continuation key.
-type PageResult struct {
-	Items   []polymorphic.Envelope `json:"items"`
-	NextKey lexkey.LexKey          `json:"next_key,omitempty"`
-}
-
-// GetDiscriminator returns the type identifier for PageResult.
-func (obj *PageResult) GetDiscriminator() string {
-	return "messaging://api/v1/page_result"
 }
