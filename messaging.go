@@ -3,19 +3,9 @@ package messaging
 import (
 	"context"
 
-	"github.com/fgrzl/claims"
 	"github.com/fgrzl/json/polymorphic"
-	"github.com/fgrzl/lexkey"
 	"github.com/google/uuid"
 )
-
-// MessageContext wraps a context and includes user claims for authorization-aware handlers.
-type MessageContext struct {
-	context.Context
-
-	// User represents the authenticated principal associated with this message.
-	User claims.Principal
-}
 
 // CorrelationID is used to associate related messages across systems.
 type CorrelationID string
@@ -100,55 +90,4 @@ type DurableQueueMessage interface {
 type SubscriptionOpts struct {
 	// QueueGroup is the queue group name for load-balanced delivery.
 	QueueGroup string
-}
-
-// PageResult represents a paginated collection of items with an optional continuation key.
-type PageResult struct {
-	Items   []polymorphic.Envelope `json:"items"`
-	NextKey lexkey.LexKey          `json:"next_key,omitempty"`
-}
-
-// GetDiscriminator returns the type identifier for PageResult.
-func (obj *PageResult) GetDiscriminator() string {
-	return "messaging://api/v1/page_result"
-}
-
-// GetUserPrincipal retrieves the user principal from context.
-// It works with both regular context.Context and *MessageContext.
-// Returns the principal and a boolean indicating if it was found.
-func GetUserPrincipal(ctx context.Context) (claims.Principal, bool) {
-	// First check if it's a MessageContext with direct User access
-	if msgCtx, ok := ctx.(*MessageContext); ok && msgCtx.User != nil {
-		return msgCtx.User, true
-	}
-
-	// Fall back to context value lookup
-	if v, ok := ctx.Value(ContextKey("user_principal")).(claims.Principal); ok {
-		return v, true
-	}
-
-	return nil, false
-}
-
-// MustGetUserPrincipal retrieves the user principal from context.
-// It works with both regular context.Context and *MessageContext.
-// Panics if the user principal is not found.
-func MustGetUserPrincipal(ctx context.Context) claims.Principal {
-	if user, ok := GetUserPrincipal(ctx); ok {
-		return user
-	}
-	panic("user principal not found in context")
-}
-
-// ContextWithUserPrincipal adds a user principal to the context.
-func ContextWithUserPrincipal(ctx context.Context, user claims.Principal) context.Context {
-	return context.WithValue(ctx, ContextKey("user_principal"), user)
-}
-
-// NewMessageContext creates a new MessageContext with the given context and user principal.
-func NewMessageContext(ctx context.Context, user claims.Principal) *MessageContext {
-	return &MessageContext{
-		Context: ctx,
-		User:    user,
-	}
 }
