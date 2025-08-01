@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/fgrzl/claims"
 	"github.com/fgrzl/json/polymorphic"
 	"github.com/fgrzl/messaging"
 	"github.com/google/uuid"
@@ -252,7 +253,7 @@ func contextFromMsg(msg *nats.Msg) context.Context {
 
 		// Handle user principal
 		if val := msg.Header.Get("X-User-Principal"); val != "" {
-			if user, err := messaging.DeserializePrincipal(val); err == nil {
+			if user, err := claims.DeserializePrincipal(val); err == nil {
 				ctx = messaging.ContextWithUserPrincipal(ctx, user)
 			} else {
 				slog.Warn("Failed to deserialize user principal", "error", err)
@@ -279,7 +280,7 @@ func messageHeadersFromContext(ctx context.Context) nats.Header {
 
 	// Handle user principal
 	if user, ok := messaging.GetUserPrincipal(ctx); ok {
-		if serialized, err := messaging.SerializePrincipal(user); err == nil {
+		if serialized, err := claims.SerializePrincipal(user); err == nil {
 			h.Set("X-User-Principal", serialized)
 		} else {
 			slog.Warn("Failed to serialize user principal", "error", err)

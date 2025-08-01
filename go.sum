@@ -4,6 +4,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fgrzl/claims v0.0.1-alpha.15 h1:FmKiM79vkMPILrZTUGcmM+C5zkpZEC3NpbGzl9g3tck=
 github.com/fgrzl/claims v0.0.1-alpha.15/go.mod h1:sN7zr8FIiKmESWghf+BuKvPpliLMUjkeQp93S/Z/imE=
+github.com/fgrzl/claims v0.0.1-alpha.17 h1:EV3M2og6bYVqXIdDCgCasg8KjekHlvzfKpib1bxA8cM=
+github.com/fgrzl/claims v0.0.1-alpha.17/go.mod h1:AOUqWTtgnwlcwaHqJLVoAgmFjuBCCJFhZlyFzazXQ00=
 github.com/fgrzl/json v0.1.0-alpha.40 h1:xX0LQAxwtNUvjToDBJd0HM9atOOamq5eo/BOAHga53s=
 github.com/fgrzl/json v0.1.0-alpha.40/go.mod h1:uhY90IO9L/wJ4qXdqHBS0PLC14YlwrpUMU8O2D9YGxQ=
 github.com/google/go-tpm v0.9.5 h1:ocUmnDebX54dnW+MQWGQRbdaAcJELsa6PqZhJ48KwVU=
@@ -23,6 +25,8 @@ github.com/nats-io/jwt/v2 v2.7.4 h1:jXFuDDxs/GQjGDZGhNgH4tXzSUK6WQi2rsj4xmsNOtI=
 github.com/nats-io/jwt/v2 v2.7.4/go.mod h1:me11pOkwObtcBNR8AiMrUbtVOUGkqYjMQZ6jnSdVUIA=
 github.com/nats-io/nats-server/v2 v2.11.6 h1:4VXRjbTUFKEB+7UoaKL3F5Y83xC7MxPoIONOnGgpkHw=
 github.com/nats-io/nats-server/v2 v2.11.6/go.mod h1:2xoztlcb4lDL5Blh1/BiukkKELXvKQ5Vy29FPVRBUYs=
+github.com/nats-io/nats-server/v2 v2.11.7 h1:lINWQ/Hb3cnaoHmWTjj/7WppZnaSh9C/1cD//nHCbms=
+github.com/nats-io/nats-server/v2 v2.11.7/go.mod h1:DchDPVzAsAPqhqm7VLedX0L7hjnV/SYtlmsl9F8U53s=
 github.com/nats-io/nats.go v1.44.0 h1:ECKVrDLdh/kDPV1g0gAQ+2+m2KprqZK5O/eJAyAnH2M=
 github.com/nats-io/nats.go v1.44.0/go.mod h1:iRWIPokVIFbVijxuMQq4y9ttaBTMe0SFdlZfMDd+33g=
 github.com/nats-io/nkeys v0.4.11 h1:q44qGV008kYd9W1b1nEBkNzvnWxtRSQ7A8BoqRrcfa0=

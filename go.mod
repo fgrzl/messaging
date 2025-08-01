@@ -4,11 +4,11 @@ go 1.24.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/nats-server/v2 v2.11.6
+	github.com/nats-io/nats-server/v2 v2.11.7
 )
 
 require (
-	github.com/fgrzl/claims v0.0.1-alpha.15
+	github.com/fgrzl/claims v0.0.1-alpha.17
 	github.com/stretchr/testify v1.10.0
 )
 
