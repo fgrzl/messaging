@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/fgrzl/telemetry"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -12,7 +13,7 @@ func TestGetCorrelationIDString(t *testing.T) {
 	t.Run("ShouldReturnStringWhenCorrelationIDExists", func(t *testing.T) {
 		// Arrange
 		correlationID := uuid.New()
-		ctx := context.WithValue(context.Background(), correlationKey, correlationID)
+		ctx := telemetry.WithCorrelationID(context.Background(), correlationID)
 
 		// Act
 		result, ok := GetCorrelationIDString(ctx)
@@ -36,7 +37,7 @@ func TestGetCorrelationIDString(t *testing.T) {
 
 	t.Run("ShouldReturnFalseWhenCorrelationIDIsNil", func(t *testing.T) {
 		// Arrange
-		ctx := context.WithValue(context.Background(), correlationKey, uuid.Nil)
+		ctx := telemetry.WithCorrelationID(context.Background(), uuid.Nil)
 
 		// Act
 		result, ok := GetCorrelationIDString(ctx)
@@ -51,7 +52,7 @@ func TestGetCausationIDString(t *testing.T) {
 	t.Run("ShouldReturnStringWhenCausationIDExists", func(t *testing.T) {
 		// Arrange
 		causationID := uuid.New()
-		ctx := context.WithValue(context.Background(), causationKey, causationID)
+		ctx := telemetry.WithCausationID(context.Background(), causationID)
 
 		// Act
 		result, ok := GetCausationIDString(ctx)
@@ -75,7 +76,7 @@ func TestGetCausationIDString(t *testing.T) {
 
 	t.Run("ShouldReturnFalseWhenCausationIDIsNil", func(t *testing.T) {
 		// Arrange
-		ctx := context.WithValue(context.Background(), causationKey, uuid.Nil)
+		ctx := telemetry.WithCausationID(context.Background(), uuid.Nil)
 
 		// Act
 		result, ok := GetCausationIDString(ctx)
@@ -90,7 +91,7 @@ func TestMustGetCorrelationID(t *testing.T) {
 	t.Run("ShouldReturnCorrelationIDWhenExists", func(t *testing.T) {
 		// Arrange
 		correlationID := uuid.New()
-		ctx := context.WithValue(context.Background(), correlationKey, correlationID)
+		ctx := telemetry.WithCorrelationID(context.Background(), correlationID)
 
 		// Act
 		result := MustGetCorrelationID(ctx)
@@ -111,7 +112,7 @@ func TestMustGetCorrelationID(t *testing.T) {
 
 	t.Run("ShouldPanicWhenCorrelationIDIsNil", func(t *testing.T) {
 		// Arrange
-		ctx := context.WithValue(context.Background(), correlationKey, uuid.Nil)
+		ctx := telemetry.WithCorrelationID(context.Background(), uuid.Nil)
 
 		// Act & Assert
 		assert.Panics(t, func() {
@@ -124,7 +125,7 @@ func TestMustGetCausationID(t *testing.T) {
 	t.Run("ShouldReturnCausationIDWhenExists", func(t *testing.T) {
 		// Arrange
 		causationID := uuid.New()
-		ctx := context.WithValue(context.Background(), causationKey, causationID)
+		ctx := telemetry.WithCausationID(context.Background(), causationID)
 
 		// Act
 		result := MustGetCausationID(ctx)
@@ -145,7 +146,7 @@ func TestMustGetCausationID(t *testing.T) {
 
 	t.Run("ShouldPanicWhenCausationIDIsNil", func(t *testing.T) {
 		// Arrange
-		ctx := context.WithValue(context.Background(), causationKey, uuid.Nil)
+		ctx := telemetry.WithCausationID(context.Background(), uuid.Nil)
 
 		// Act & Assert
 		assert.Panics(t, func() {

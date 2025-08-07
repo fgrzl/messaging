@@ -31,7 +31,7 @@ func (e *TestEvent) GetRoute() messaging.Route {
 	return messaging.NewGlobalRoute("integration", "test")
 }
 
-func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
+func TestShouldNotifyMessageBusWithNATSBroker(t *testing.T) {
 	ctx := context.Background()
 
 	mockCreds, err := GenerateMockTrustedOperatorSetup()
@@ -45,6 +45,7 @@ func Test_NATSBroker_MessageBus_Notify(t *testing.T) {
 		ShutdownTimeout:  10 * time.Second,
 		Host:             "localhost",
 		WebSocketPort:    9222,
+		MonitorPort:      8222,
 	}
 	embedded := natsbroker.NewBroker(ctx, opts)
 	err = embedded.Start(ctx)
