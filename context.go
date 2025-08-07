@@ -4,27 +4,21 @@ import (
 	"context"
 
 	"github.com/fgrzl/claims"
+	"github.com/fgrzl/telemetry"
 	"github.com/google/uuid"
 )
 
 // ContextKey is a type for context keys to avoid collisions.
-type ContextKey string
+// tenantKeyType is an unexported struct type for context keys to avoid collisions.
+type tenantKeyType struct{}
 
-const (
-	// correlationKey is the context key for correlation ID.
-	correlationKey ContextKey = "correlation_id"
-	// causationKey is the context key for causation ID.
-	causationKey ContextKey = "causation_id"
-	// tenantKey is the context key for tenant ID.
-	tenantKey ContextKey = "tenant_id"
-	// userKey is the context key for user principal.
-	userKey ContextKey = "user_principal"
-)
+// tenantKey is the context key for tenant ID.
+var tenantKey = tenantKeyType{}
 
 // ContextWithTracing adds correlation and causation IDs to the context for message tracing.
 func ContextWithTracing(ctx context.Context, correlationID, causationID uuid.UUID) context.Context {
-	ctx = context.WithValue(ctx, correlationKey, correlationID)
-	ctx = context.WithValue(ctx, causationKey, causationID)
+	ctx = telemetry.WithCorrelationID(ctx, correlationID)
+	ctx = telemetry.WithCausationID(ctx, causationID)
 	return ctx
 }
 
@@ -37,16 +31,16 @@ func GetTracing(ctx context.Context) (correlationID, causationID uuid.UUID) {
 
 // GetCorrelationID retrieves the correlation ID from the context.
 func GetCorrelationID(ctx context.Context) uuid.UUID {
-	if v, ok := ctx.Value(correlationKey).(uuid.UUID); ok {
-		return v
+	if c, ok := telemetry.CorrelationIDFromContext(ctx); ok {
+		return c
 	}
 	return uuid.Nil
 }
 
 // GetCausationID retrieves the causation ID from the context.
 func GetCausationID(ctx context.Context) uuid.UUID {
-	if v, ok := ctx.Value(causationKey).(uuid.UUID); ok {
-		return v
+	if c, ok := telemetry.CausationIDFromContext(ctx); ok {
+		return c
 	}
 	return uuid.Nil
 }
@@ -67,8 +61,10 @@ func ContextWithTenant(ctx context.Context, tenantID uuid.UUID) context.Context 
 
 // GetCorrelationIDString retrieves the correlation ID from context as a string.
 // Returns the string representation of the UUID and a boolean indicating if it was found.
+// GetCorrelationIDString retrieves the correlation ID from context as a string using telemetry.
+// Returns the string representation of the UUID and a boolean indicating if it was found.
 func GetCorrelationIDString(ctx context.Context) (string, bool) {
-	if v, ok := ctx.Value(correlationKey).(uuid.UUID); ok && v != uuid.Nil {
+	if v, ok := telemetry.CorrelationIDFromContext(ctx); ok && v != uuid.Nil {
 		return v.String(), true
 	}
 	return "", false
@@ -76,8 +72,10 @@ func GetCorrelationIDString(ctx context.Context) (string, bool) {
 
 // GetCausationIDString retrieves the causation ID from context as a string.
 // Returns the string representation of the UUID and a boolean indicating if it was found.
+// GetCausationIDString retrieves the causation ID from context as a string using telemetry.
+// Returns the string representation of the UUID and a boolean indicating if it was found.
 func GetCausationIDString(ctx context.Context) (string, bool) {
-	if v, ok := ctx.Value(causationKey).(uuid.UUID); ok && v != uuid.Nil {
+	if v, ok := telemetry.CausationIDFromContext(ctx); ok && v != uuid.Nil {
 		return v.String(), true
 	}
 	return "", false
@@ -85,8 +83,10 @@ func GetCausationIDString(ctx context.Context) (string, bool) {
 
 // MustGetCorrelationID retrieves the correlation ID from context.
 // Panics if the correlation ID is not found or is nil.
+// MustGetCorrelationID retrieves the correlation ID from context using telemetry.
+// Panics if the correlation ID is not found or is nil.
 func MustGetCorrelationID(ctx context.Context) uuid.UUID {
-	if v, ok := ctx.Value(correlationKey).(uuid.UUID); ok && v != uuid.Nil {
+	if v, ok := telemetry.CorrelationIDFromContext(ctx); ok && v != uuid.Nil {
 		return v
 	}
 	panic("correlation ID not found in context")
@@ -94,8 +94,10 @@ func MustGetCorrelationID(ctx context.Context) uuid.UUID {
 
 // MustGetCausationID retrieves the causation ID from context.
 // Panics if the causation ID is not found or is nil.
+// MustGetCausationID retrieves the causation ID from context using telemetry.
+// Panics if the causation ID is not found or is nil.
 func MustGetCausationID(ctx context.Context) uuid.UUID {
-	if v, ok := ctx.Value(causationKey).(uuid.UUID); ok && v != uuid.Nil {
+	if v, ok := telemetry.CausationIDFromContext(ctx); ok && v != uuid.Nil {
 		return v
 	}
 	panic("causation ID not found in context")
@@ -104,10 +106,7 @@ func MustGetCausationID(ctx context.Context) uuid.UUID {
 // GetUserPrincipal retrieves the user principal from context.
 // Returns the principal and a boolean indicating if it was found.
 func GetUserPrincipal(ctx context.Context) (claims.Principal, bool) {
-	if v, exists := ctx.Value(userKey).(claims.Principal); exists {
-		return v, true
-	}
-	return nil, false
+	return claims.UserFromContext(ctx)
 }
 
 // MustGetUserPrincipal retrieves the user principal from context.
@@ -121,5 +120,5 @@ func MustGetUserPrincipal(ctx context.Context) claims.Principal {
 
 // ContextWithUserPrincipal adds a user principal to the context.
 func ContextWithUserPrincipal(ctx context.Context, user claims.Principal) context.Context {
-	return context.WithValue(ctx, userKey, user)
+	return claims.WithUser(ctx, user)
 }
