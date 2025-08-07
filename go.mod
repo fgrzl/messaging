@@ -9,13 +9,13 @@ require (
 
 require (
 	github.com/fgrzl/claims v0.0.1-alpha.19
+	github.com/fgrzl/telemetry v0.1.0-alpha.9
 	github.com/stretchr/testify v1.10.0
 )
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/fgrzl/telemetry v0.1.0-alpha.9 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
