@@ -37,4 +37,4 @@ jobs:
           tag: ${{ steps.version.outputs.semVer }}
 
       - name: Prune Pre-release Tags
-        uses: fgrzl/actions/prune-tags@v0.0.35
+        uses: fgrzl/actions/prune-tags@v0.0.5
