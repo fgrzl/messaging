@@ -46,7 +46,7 @@ type ErrorResponse struct {
 
 // GetDiscriminator returns the type identifier for ErrorResponse.
 func (e *ErrorResponse) GetDiscriminator() string {
-	return "messaging://api/v1/err_response"
+	return "messaging://err_response"
 }
 
 // BoolResult represents a simple boolean response value.
@@ -56,7 +56,7 @@ type BoolResult struct {
 
 // GetDiscriminator returns the type identifier for BoolResult.
 func (e *BoolResult) GetDiscriminator() string {
-	return "messaging://api/v1/bool_result"
+	return "messaging://bool_result"
 }
 
 // Accepted represents a successful but content-less acknowledgment.
@@ -67,7 +67,7 @@ type Accepted struct {
 
 // GetDiscriminator returns the type identifier for Accepted.
 func (e *Accepted) GetDiscriminator() string {
-	return "messaging://api/v1/accepted"
+	return "messaging://accepted"
 }
 
 // Subscription represents an active subscription that can be unsubscribed.
