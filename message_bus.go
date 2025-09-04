@@ -118,3 +118,14 @@ func SubscribeRequest[TRequest Request, TResponse Response](
 		return handler(ctx, tMsg)
 	})
 }
+
+// Notify sends a strongly-typed one-way message (fire-and-forget).
+// It wraps the context-free case by delegating to NotifyWithContext.
+func Notify[T Message](bus MessageBus, msg T) error {
+	return NotifyWithContext(context.Background(), bus, msg)
+}
+
+// NotifyWithContext sends a strongly-typed one-way message using the provided context.
+func NotifyWithContext[T Message](ctx context.Context, bus MessageBus, msg T) error {
+	return bus.NotifyWithContext(ctx, msg)
+}
