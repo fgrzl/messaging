@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/nats-server/v2 v2.11.8
+	github.com/nats-io/nats-server/v2 v2.11.9
 )
 
 require (
@@ -14,6 +14,7 @@ require (
 )
 
 require (
+	github.com/antithesishq/antithesis-sdk-go v0.4.3-default-no-op // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -49,6 +50,6 @@ require (
 	github.com/nats-io/nkeys v0.4.11
 	github.com/nats-io/nuid v1.0.1 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/time v0.12.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/time v0.13.0 // indirect
 )
