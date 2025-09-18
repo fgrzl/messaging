@@ -33,8 +33,9 @@ func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) 
 func connectWithOptions(endpoint string, auth nats.Option) (messaging.MessageBus, error) {
 	opts := []nats.Option{
 		auth,
-		nats.ReconnectWait(5 * time.Second),
 		nats.MaxReconnects(-1),
+		nats.ReconnectWait(2 * time.Second),
+		nats.PingInterval(20 * time.Second),
 		nats.ReconnectHandler(func(_ *nats.Conn) {
 			slog.Info("Reconnected to NATS")
 		}),
