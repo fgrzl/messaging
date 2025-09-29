@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/nats-server/v2 v2.11.9
+	github.com/nats-io/nats-server/v2 v2.12.0
 )
 
 require (
