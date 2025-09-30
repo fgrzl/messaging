@@ -36,11 +36,19 @@ func connectWithOptions(endpoint string, auth nats.Option) (messaging.MessageBus
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2 * time.Second),
 		nats.PingInterval(20 * time.Second),
-		nats.ReconnectHandler(func(_ *nats.Conn) {
-			slog.Info("Reconnected to NATS")
+		nats.ReconnectHandler(func(c *nats.Conn) {
+			if c != nil {
+				slog.Info("Reconnected to NATS", slog.String("server", c.ConnectedUrl()))
+			} else {
+				slog.Info("Reconnected to NATS")
+			}
 		}),
-		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
-			slog.Warn("Disconnected from NATS", slog.Any("error", err))
+		nats.DisconnectErrHandler(func(c *nats.Conn, err error) {
+			if c != nil {
+				slog.Warn("Disconnected from NATS", slog.String("server", c.ConnectedUrl()), slog.Any("error", err))
+			} else {
+				slog.Warn("Disconnected from NATS", slog.Any("error", err))
+			}
 		}),
 	}
 
@@ -65,7 +73,7 @@ func (b *natsBus) NotifyWithContext(ctx context.Context, msg messaging.Message) 
 	subj := toSubj(msg.GetRoute())
 	data, err := encodeMessage(msg)
 	if err != nil {
-		slog.Error("Failed to serialize notification", "route", subj, "error", err)
+		slog.ErrorContext(ctx, "Failed to serialize notification", "route", subj, "error", err)
 		return err
 	}
 
@@ -84,7 +92,7 @@ func (b *natsBus) RequestWithContext(ctx context.Context, msg messaging.Request,
 	subj := toSubj(msg.GetRoute())
 	data, err := encodeMessage(msg)
 	if err != nil {
-		slog.Error("Failed to serialize request", "route", subj, "error", err)
+		slog.ErrorContext(ctx, "Failed to serialize request", "route", subj, "error", err)
 		return nil, err
 	}
 
@@ -94,13 +102,13 @@ func (b *natsBus) RequestWithContext(ctx context.Context, msg messaging.Request,
 		Header:  messageHeadersFromContext(ctx),
 	}, timeout)
 	if err != nil {
-		slog.Error("NATS request failed", "route", subj, "error", err)
+		slog.ErrorContext(ctx, "NATS request failed", "route", subj, "error", err)
 		return nil, err
 	}
 
 	response, err := decodeMessage[messaging.Response](res.Data)
 	if err != nil {
-		slog.Error("Failed to decode response", "route", subj, "error", err)
+		slog.ErrorContext(ctx, "Failed to decode response", "route", subj, "error", err)
 		return nil, err
 	}
 
@@ -115,7 +123,12 @@ func (b *natsBus) SubscribeWithOptions(route messaging.Route, handler messaging.
 	subj := toSubj(route)
 	queue := opts.QueueGroup
 
-	slog.Info("Subscribing to message", "route", route, "queueGroup", queue)
+	slog.Info("Subscribing to message",
+		slog.String("scope", string(route.Scope)),
+		slog.String("area", route.Area),
+		slog.String("name", route.Name),
+		slog.String("queueGroup", queue),
+	)
 
 	var (
 		sub *nats.Subscription
@@ -130,7 +143,7 @@ func (b *natsBus) SubscribeWithOptions(route messaging.Route, handler messaging.
 	}
 
 	if err != nil {
-		slog.Error("Failed to subscribe", "route", route, "error", err)
+		slog.Error("Failed to subscribe", slog.Any("route", route), slog.Any("error", err))
 		return nil, err
 	}
 
@@ -145,7 +158,7 @@ func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.Requ
 		b.handleRequest(msg, handler)
 	})
 	if err != nil {
-		slog.Error("Failed to subscribe to requests", "route", subj, "error", err)
+		slog.Error("Failed to subscribe to requests", slog.String("route", subj), slog.Any("error", err))
 		return nil, err
 	}
 
@@ -153,38 +166,41 @@ func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.Requ
 }
 
 func (b *natsBus) handleMessage(msg *nats.Msg, handler messaging.MessageHandler) {
+	ctx := contextFromMsg(msg)
 	message, err := decodeMessage[messaging.Message](msg.Data)
 	if err != nil {
-		slog.Error("Failed to deserialize message", "error", err)
+		slog.ErrorContext(ctx, "Failed to deserialize message", "error", err)
 		return
 	}
-	handler(contextFromMsg(msg), message)
+	handler(ctx, message)
 }
 
 func (b *natsBus) handleRequest(msg *nats.Msg, handler messaging.RequestHandler) {
+	ctx := contextFromMsg(msg)
 	request, err := decodeMessage[messaging.Request](msg.Data)
 	if err != nil {
-		slog.Error("Failed to deserialize request", "error", err)
+		slog.ErrorContext(ctx, "Failed to deserialize request", "error", err)
 		b.respondWithError(msg, "Invalid request format")
 		return
 	}
-	response, err := handler(contextFromMsg(msg), request)
+	response, err := handler(ctx, request)
 	if err != nil {
-		slog.Warn("Request handler error", "error", err)
+		slog.WarnContext(ctx, "Request handler error", "error", err)
 		b.respondWithError(msg, err.Error())
 		return
 	}
-	b.respond(msg, response)
+	b.respondWithContext(ctx, msg, response)
 }
 
 func (b *natsBus) respondWithError(msg *nats.Msg, errMsg string) {
-	b.respond(msg, &messaging.ErrorResponse{Error: errMsg})
+	ctx := contextFromMsg(msg)
+	b.respondWithContext(ctx, msg, &messaging.ErrorResponse{Error: errMsg})
 }
 
-func (b *natsBus) respond(msg *nats.Msg, response messaging.Response) {
+func (b *natsBus) respondWithContext(ctx context.Context, msg *nats.Msg, response messaging.Response) {
 	data, err := encodeMessage(response)
 	if err != nil {
-		slog.Warn("Failed to serialize response", "error", err)
+		slog.WarnContext(ctx, "Failed to serialize response", "error", err)
 		return
 	}
 	_ = msg.Respond(data)
@@ -193,7 +209,7 @@ func (b *natsBus) respond(msg *nats.Msg, response messaging.Response) {
 func (b *natsBus) Unsubscribe(sub messaging.Subscription) error {
 	err := sub.Unsubscribe()
 	if err != nil {
-		slog.Warn("Failed to unsubscribe", "error", err)
+		slog.Warn("Failed to unsubscribe", slog.Any("error", err))
 	}
 	return err
 }
@@ -257,7 +273,13 @@ func contextFromMsg(msg *nats.Msg) context.Context {
 			if user, err := claims.DeserializePrincipal(val); err == nil {
 				ctx = messaging.ContextWithUserPrincipal(ctx, user)
 			} else {
-				slog.Warn("Failed to deserialize user principal", "error", err)
+				// include any tracing info we managed to capture so far
+				corr := messaging.GetCorrelationID(ctx)
+				if corr != uuid.Nil {
+					slog.WarnContext(ctx, "Failed to deserialize user principal", "error", err)
+				} else {
+					slog.Warn("Failed to deserialize user principal", slog.Any("error", err))
+				}
 			}
 		}
 	}
@@ -284,7 +306,13 @@ func messageHeadersFromContext(ctx context.Context) nats.Header {
 		if serialized, err := claims.SerializePrincipal(user); err == nil {
 			h.Set("X-User-Principal", serialized)
 		} else {
-			slog.Warn("Failed to serialize user principal", "error", err)
+			// prefer context-aware logging if tracing present
+			corr := messaging.GetCorrelationID(ctx)
+			if corr != uuid.Nil {
+				slog.WarnContext(ctx, "Failed to serialize user principal", "error", err)
+			} else {
+				slog.Warn("Failed to serialize user principal", slog.Any("error", err))
+			}
 		}
 	}
 
