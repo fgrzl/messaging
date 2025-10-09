@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches:
@@ -12,35 +13,38 @@ on:
 
 permissions:
   contents: read
-  packages: write
-  actions: write
 
 jobs:
-  BuildAndTest:
+  build:
     name: Build and Test
-    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
     timeout-minutes: 5
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set Up Go
+      - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: 1.25.0
+          go-version: '>=1.24.0'
+          cache: true
+          cache-dependency-path: '**/go.sum'
+          check-latest: false
 
-      - name: Install Dependencies
-        run: go mod tidy
-
-      - name: Download Dependencies
+      - name: Download
         run: go mod download
 
-      - name: Build Project
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
         run: go build ./...
 
-      - name: Run Tests
-        run: go test ./... -v -coverprofile=coverage.out
-
-      - name: Workflow Cleanup
-        uses: fgrzl/actions/workflow-cleanup@v0.0.5
+      - name: Test
+        run: go test ./... -timeout 30s -cover
