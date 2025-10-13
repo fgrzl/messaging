@@ -41,7 +41,7 @@ require (
 )
 
 require (
-	github.com/fgrzl/json v0.1.0-alpha.60
+	github.com/fgrzl/json v0.1.0-alpha.62
 	github.com/google/go-tpm v0.9.6 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/minio/highwayhash v1.0.3 // indirect
