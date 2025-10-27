@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -150,7 +151,8 @@ func extractAccountPublicKey(jwtStr string) (string, error) {
 
 func resolveOperatorClaims(ctx context.Context, options BrokerOptions) ([]*jwt.OperatorClaims, error) {
 	if options.OperatorJWTURL != "" {
-		return fetchTrustedOperators(ctx, options.OperatorJWTURL)
+		httpClient := createHTTPClient(options.InsecureSkipVerify)
+		return fetchTrustedOperators(ctx, options.OperatorJWTURL, httpClient)
 	} else if options.OperatorJWT != "" {
 		claim, err := jwt.DecodeOperatorClaims(options.OperatorJWT)
 		if err != nil {
@@ -200,7 +202,45 @@ func loadTLS(certFile, keyFile string, insecureSkipVerify bool) (*tls.Config, er
 	}, nil
 }
 
-func fetchTrustedOperators(ctx context.Context, url string) ([]*jwt.OperatorClaims, error) {
+// createHTTPClient creates an HTTP client with optional TLS verification skip.
+// The client is configured with appropriate timeouts and connection pooling.
+func createHTTPClient(insecureSkipVerify bool) *http.Client {
+	transport := &http.Transport{
+		// Connection pool settings
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		MaxConnsPerHost:     100,
+		IdleConnTimeout:     90 * time.Second,
+
+		// Timeouts
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+
+		// TLS configuration
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+			MinVersion:         tls.VersionTLS12,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+		},
+	}
+
+	return &http.Client{
+		Timeout:   60 * time.Second, // Overall request timeout
+		Transport: transport,
+	}
+}
+
+func fetchTrustedOperators(ctx context.Context, url string, httpClient *http.Client) ([]*jwt.OperatorClaims, error) {
 	const (
 		maxRetries    = 5
 		initialDelay  = 500 * time.Millisecond
@@ -216,7 +256,7 @@ func fetchTrustedOperators(ctx context.Context, url string) ([]*jwt.OperatorClai
 	delay := initialDelay
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			slog.WarnContext(ctx, "Failed to fetch operator JWT",
 				slog.Int("attempt", attempt),

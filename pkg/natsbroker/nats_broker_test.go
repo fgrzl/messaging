@@ -506,6 +506,61 @@ func TestJitter(t *testing.T) {
 	})
 }
 
+func TestCreateHTTPClient(t *testing.T) {
+	t.Run("ShouldCreateClientWithSecureTLSSettings", func(t *testing.T) {
+		// Act
+		client := createHTTPClient(false)
+
+		// Assert
+		assert.NotNil(t, client)
+		assert.NotNil(t, client.Transport)
+		assert.Equal(t, 60*time.Second, client.Timeout)
+
+		// Verify the transport has proper TLS configuration
+		if transport, ok := client.Transport.(*http.Transport); ok {
+			assert.NotNil(t, transport.TLSClientConfig)
+			assert.False(t, transport.TLSClientConfig.InsecureSkipVerify)
+			assert.Equal(t, uint16(0x0303), transport.TLSClientConfig.MinVersion) // TLS 1.2
+			assert.NotEmpty(t, transport.TLSClientConfig.CipherSuites)
+
+			// Verify connection pool settings
+			assert.Equal(t, 100, transport.MaxIdleConns)
+			assert.Equal(t, 10, transport.MaxIdleConnsPerHost)
+			assert.Equal(t, 100, transport.MaxConnsPerHost)
+			assert.Equal(t, 90*time.Second, transport.IdleConnTimeout)
+
+			// Verify timeout settings
+			assert.Equal(t, 10*time.Second, transport.TLSHandshakeTimeout)
+			assert.Equal(t, 10*time.Second, transport.ResponseHeaderTimeout)
+			assert.Equal(t, 1*time.Second, transport.ExpectContinueTimeout)
+		} else {
+			t.Fatal("Transport is not *http.Transport")
+		}
+	})
+
+	t.Run("ShouldCreateClientWithInsecureSkipVerifyWhenEnabled", func(t *testing.T) {
+		// Act
+		client := createHTTPClient(true)
+
+		// Assert
+		assert.NotNil(t, client)
+		assert.NotNil(t, client.Transport)
+
+		// Verify the transport has InsecureSkipVerify set
+		if transport, ok := client.Transport.(*http.Transport); ok {
+			assert.NotNil(t, transport.TLSClientConfig)
+			assert.True(t, transport.TLSClientConfig.InsecureSkipVerify)
+			assert.Equal(t, uint16(0x0303), transport.TLSClientConfig.MinVersion) // TLS 1.2
+
+			// Should still have proper connection pool settings
+			assert.Equal(t, 100, transport.MaxIdleConns)
+			assert.Equal(t, 10, transport.MaxIdleConnsPerHost)
+		} else {
+			t.Fatal("Transport is not *http.Transport")
+		}
+	})
+}
+
 func TestFetchTrustedOperators(t *testing.T) {
 	// Generate operator JWT for tests
 	operatorJWTs, _, _ := generateTestJWTs(t)
@@ -521,7 +576,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		ctx := context.Background()
 
 		// Act
-		claims, err := fetchTrustedOperators(ctx, server.URL)
+		claims, err := fetchTrustedOperators(ctx, server.URL, http.DefaultClient)
 
 		// Assert
 		require.NoError(t, err)
@@ -546,7 +601,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		ctx := context.Background()
 
 		// Act
-		claims, err := fetchTrustedOperators(ctx, server.URL)
+		claims, err := fetchTrustedOperators(ctx, server.URL, http.DefaultClient)
 
 		// Assert
 		require.NoError(t, err)
@@ -560,7 +615,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		invalidURL := "http://localhost:99999"
 
 		// Act
-		_, err := fetchTrustedOperators(ctx, invalidURL)
+		_, err := fetchTrustedOperators(ctx, invalidURL, http.DefaultClient)
 
 		// Assert
 		assert.Error(t, err)
@@ -573,7 +628,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		cancel() // Cancel immediately
 
 		// Act - doesn't matter what URL since context is cancelled
-		_, err := fetchTrustedOperators(ctx, "http://localhost:9999")
+		_, err := fetchTrustedOperators(ctx, "http://localhost:9999", http.DefaultClient)
 
 		// Assert
 		assert.Error(t, err)
@@ -591,7 +646,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		ctx := context.Background()
 
 		// Act
-		_, err := fetchTrustedOperators(ctx, server.URL)
+		_, err := fetchTrustedOperators(ctx, server.URL, http.DefaultClient)
 
 		// Assert
 		assert.Error(t, err)
@@ -610,7 +665,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		ctx := context.Background()
 
 		// Act
-		_, err := fetchTrustedOperators(ctx, server.URL)
+		_, err := fetchTrustedOperators(ctx, server.URL, http.DefaultClient)
 
 		// Assert
 		assert.Error(t, err)
