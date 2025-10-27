@@ -41,7 +41,7 @@ func TestShouldNotifyMessageBusWithNATSBroker(t *testing.T) {
 	opts := natsbroker.BrokerOptions{
 		AccountJWT:       mockCreds.AccountJWT,
 		OperatorJWT:      mockCreds.OperatorJWT,
-		ReadinessTimeout: 15 * time.Second,
+		ReadinessTimeout: 30 * time.Second, // Generous timeout for Windows + race detector
 		ShutdownTimeout:  10 * time.Second,
 		Host:             "127.0.0.1",
 		WebSocketPort:    9222,

@@ -602,7 +602,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		}))
 		defer server.Close()
 
-		ctx := context.Background()
+		ctx := withFastRetry(context.Background())
 
 		// Act
 		claims, err := fetchTrustedOperators(ctx, server.URL, http.DefaultClient)
@@ -615,7 +615,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 
 	t.Run("ShouldRetryOnConnectionError", func(t *testing.T) {
 		// Arrange - use invalid port
-		ctx := context.Background()
+		ctx := withFastRetry(context.Background())
 		invalidURL := "http://localhost:99999"
 
 		// Act
@@ -658,10 +658,6 @@ func TestFetchTrustedOperators(t *testing.T) {
 	})
 
 	t.Run("ShouldReturnErrorAfterMaxRetries", func(t *testing.T) {
-		if testing.Short() {
-			t.Skip("Skipping retry test in short mode")
-		}
-
 		// Arrange - server that always fails
 		attempts := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -670,7 +666,7 @@ func TestFetchTrustedOperators(t *testing.T) {
 		}))
 		defer server.Close()
 
-		ctx := context.Background()
+		ctx := withFastRetry(context.Background())
 
 		// Act
 		_, err := fetchTrustedOperators(ctx, server.URL, http.DefaultClient)

@@ -240,22 +240,51 @@ func createHTTPClient(insecureSkipVerify bool) *http.Client {
 	}
 }
 
+type retryConfig struct {
+	maxRetries    int
+	initialDelay  time.Duration
+	backoffFactor float64
+	jitterRange   time.Duration
+}
+
+type contextKey int
+
+const retryConfigKey contextKey = 0
+
+// withFastRetry returns a context configured for fast retries (for testing)
+func withFastRetry(ctx context.Context) context.Context {
+	return context.WithValue(ctx, retryConfigKey, retryConfig{
+		maxRetries:    5,
+		initialDelay:  1 * time.Millisecond,
+		backoffFactor: 1.5,
+		jitterRange:   1 * time.Millisecond,
+	})
+}
+
+func getRetryConfig(ctx context.Context) retryConfig {
+	if cfg, ok := ctx.Value(retryConfigKey).(retryConfig); ok {
+		return cfg
+	}
+	// Default production config
+	return retryConfig{
+		maxRetries:    5,
+		initialDelay:  500 * time.Millisecond,
+		backoffFactor: 2.0,
+		jitterRange:   250 * time.Millisecond,
+	}
+}
+
 func fetchTrustedOperators(ctx context.Context, url string, httpClient *http.Client) ([]*jwt.OperatorClaims, error) {
-	const (
-		maxRetries    = 5
-		initialDelay  = 500 * time.Millisecond
-		backoffFactor = 2.0
-		jitterRange   = 250 * time.Millisecond
-	)
+	cfg := getRetryConfig(ctx)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 
-	delay := initialDelay
+	delay := cfg.initialDelay
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= cfg.maxRetries; attempt++ {
 		resp, err := httpClient.Do(req)
 		if err != nil {
 			slog.WarnContext(ctx, "Failed to fetch operator JWT",
@@ -285,18 +314,18 @@ func fetchTrustedOperators(ctx context.Context, url string, httpClient *http.Cli
 		}
 
 		// Don't sleep after the last attempt
-		if attempt < maxRetries {
+		if attempt < cfg.maxRetries {
 			// Check context before sleeping
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-time.After(delay + time.Duration(jitter(jitterRange))):
-				delay = time.Duration(float64(delay) * backoffFactor)
+			case <-time.After(delay + time.Duration(jitter(cfg.jitterRange))):
+				delay = time.Duration(float64(delay) * cfg.backoffFactor)
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("failed to fetch trusted operator JWT from %s after %d attempts", url, maxRetries)
+	return nil, fmt.Errorf("failed to fetch trusted operator JWT from %s after %d attempts", url, cfg.maxRetries)
 }
 
 func jitter(max time.Duration) time.Duration {
