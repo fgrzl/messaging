@@ -242,12 +242,15 @@ func fetchTrustedOperators(ctx context.Context, url string) ([]*jwt.OperatorClai
 				slog.Int("status", resp.StatusCode))
 		}
 
-		// Check context before sleeping
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(delay + time.Duration(jitter(jitterRange))):
-			delay = time.Duration(float64(delay) * backoffFactor)
+		// Don't sleep after the last attempt
+		if attempt < maxRetries {
+			// Check context before sleeping
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay + time.Duration(jitter(jitterRange))):
+				delay = time.Duration(float64(delay) * backoffFactor)
+			}
 		}
 	}
 
