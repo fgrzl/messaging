@@ -52,6 +52,10 @@ This specification defines the behaviors that the messaging library supports, as
 - ✅ **Should format internal routes** as `{scope}.{area}.{name}`
 - ✅ **Should format tenant routes with ID** as `{scope}.{tenantId}.{area}.{name}`
 - ✅ **Should format tenant routes with wildcard** as `{scope}.*.{area}.{name}` when ID is nil
+- ✅ **Should format inbox routes with ID** as `{scope}.{inboxId}.{area}.{name}`
+- ✅ **Should format inbox routes with wildcard** as `{scope}.*.{area}.{name}` when ID is nil
+
+**Note**: As of the latest implementation, inbox routes now include the inbox ID in the NATS subject to ensure proper message isolation and direct addressing. This enables true peer-to-peer and session-specific messaging.
 
 ---
 
@@ -128,6 +132,11 @@ This specification defines the behaviors that the messaging library supports, as
 
 ### Connection Management
 - ✅ **Should close connection cleanly**
+
+### Inbox Messaging
+- ✅ **Should isolate inbox messages by ID** - Messages sent to different inbox IDs are properly isolated
+- ✅ **Should support inbox request/response** - Request/response pattern works with inbox-scoped routes
+- ✅ **Should subscribe to wildcard inboxes** - Wildcard subscribers can receive messages from all inbox IDs
 
 ### Integration Scenarios
 - ✅ **Should demonstrate expected usage in message handler**
@@ -240,8 +249,8 @@ This specification defines the behaviors that the messaging library supports, as
 - ✅ **NATS broker (91.8%)** - Improved from 76.9%!
   - Lifecycle, TLS, JWT authentication, HTTP fetching with retry logic
 - ✅ Core messaging context (80.0%)
-- ✅ **NATS message bus (75.9%)** - Improved from 28.5%!
-  - Connection, pub/sub, request/response patterns
+- ✅ **NATS message bus (76.2%)** - Improved from 28.5%!
+  - Connection, pub/sub, request/response patterns, inbox isolation
 - ✅ NATS claims management (100%)
 - ✅ Message processor (91.7%)
 
@@ -262,11 +271,11 @@ This specification defines the behaviors that the messaging library supports, as
 |---------|----------|------------|--------|
 | github.com/fgrzl/messaging | 80.0% | 19 tests | ✅ |
 | pkg/natsbroker | 91.8% | 32 tests | ✅ |
-| pkg/natsbus | 75.9% | 17 tests | ✅ |
+| pkg/natsbus | 76.2% | 20 tests | ✅ |
 | pkg/natsclaims | 100% | 14 tests | ✅ |
 | test | 91.7% | 6 tests | ✅ |
 
-**Total: 88 behavioral tests proving system functionality**
+**Total: 91 behavioral tests proving system functionality**
 
 ### Running Tests
 
@@ -290,17 +299,23 @@ go test ./... -cover
 ## Next Steps
 
 ### Completed ✅
-- ✅ **Added integration tests for NATS Message Bus** (28.5% → 75.9%)
+- ✅ **Added integration tests for NATS Message Bus** (28.5% → 76.2%)
   - Real embedded broker connections
   - Pub/sub operations with queue groups
   - Request/response patterns
   - Context preservation and tracing
+  - Inbox message isolation and direct addressing
   
 - ✅ **Enhanced NATS Broker tests** (76.9% → 91.8%)
   - HTTP operator fetching with mock server
   - Retry logic with exponential backoff
   - Context cancellation
   - Account key extraction
+
+- ✅ **Inbox route improvements**
+  - Subject mapping now includes inbox ID for true direct addressing
+  - Wildcard support for subscribing to all inbox messages
+  - Integration tests proving message isolation across inbox IDs
 
 ### Future Enhancements
 1. **Performance & Load Testing**

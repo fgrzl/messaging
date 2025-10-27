@@ -142,7 +142,8 @@ func main() {
         WebSocketPort:    9222,
         OperatorJWT:      operatorJWT,
         AccountJWT:       accountJWT,
-        ReadinessTimeout: 5 * time.Second,
+        ReadinessTimeout: 15 * time.Second, // Recommended: 15s for reliable startup
+        ShutdownTimeout:  10 * time.Second,
     }
 
     broker := natsbroker.NewBroker(ctx, opts)
@@ -155,6 +156,26 @@ func main() {
     // Now connect clients to ws://localhost:9222
 }
 ```
+
+## Configuration
+
+### Broker Timeout Recommendations
+
+When configuring the embedded NATS broker, use appropriate timeout values based on your environment:
+
+**Development**:
+- `ReadinessTimeout`: 15s (recommended) - Allows broker to initialize reliably, especially with TLS
+- `ShutdownTimeout`: 10s - Graceful shutdown with cleanup
+
+**Production**:
+- `ReadinessTimeout`: 30s - Conservative timeout for loaded systems
+- `ShutdownTimeout`: 30s - Allow time for connection draining
+
+**CI/Testing**:
+- `ReadinessTimeout`: 15-20s - Balance between speed and reliability
+- Consider using `-short` flag to skip integration tests with embedded brokers
+
+Default values (5s readiness, 10s shutdown) work for simple scenarios but may be too aggressive when running multiple broker instances in parallel or under load.
 
 ## Architecture
 
@@ -201,18 +222,25 @@ This library includes comprehensive unit and integration tests with behavioral n
 go test -short ./... -cover
 ```
 
+**With race detection (recommended for CI)**:
+```bash
+go test -short -race ./... -cover
+```
+
 **Full (including integration tests)**:
 ```bash
 # Integration tests use embedded NATS brokers and work best when run per-package
 go test ./pkg/natsbus -cover
 go test ./pkg/natsbroker -cover
-go test ./... -cover
+go test ./test -cover
 ```
+
+**Why per-package for integration tests?** Integration tests start embedded NATS broker instances. Running all packages in parallel can cause resource contention and timeouts. Use `-short` flag for fast feedback in CI, or run integration packages individually for full coverage validation.
 
 **Coverage**: All packages maintain >75% test coverage:
 - `messaging`: 80.0%
 - `pkg/natsbroker`: 91.8%
-- `pkg/natsbus`: 75.9%
+- `pkg/natsbus`: 76.2%
 - `pkg/natsclaims`: 100%
 - `test`: 91.7%
 
@@ -224,9 +252,13 @@ See [docs/SPEC.md](docs/SPEC.md) for the complete behavioral specification.
 2. Create a feature branch
 3. Make your changes
 4. Add tests for new functionality (follow behavioral naming: `TestShouldDoSomethingWhenCondition`)
-5. Run tests: `go test -short ./...` (unit) or `go test ./...` (full)
-6. Submit a pull request
+5. Run tests locally:
+   - Fast: `go test -short -race ./...` 
+   - Full: `go test ./pkg/natsbus && go test ./pkg/natsbroker && go test ./test`
+6. Ensure `go vet ./...` passes
+7. Submit a pull request
 
 ## License
 
 This project is licensed under the terms specified in the LICENSE file.
+

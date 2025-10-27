@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -84,7 +85,7 @@ func (p *processorBase) Stop(ctx context.Context) error {
 	p.subscriptions = nil
 
 	if len(errs) > 0 {
-		return fmt.Errorf("processor stop encountered errors: %v", errs)
+		return fmt.Errorf("processor stop encountered errors: %w", errors.Join(errs...))
 	}
 	return nil
 }

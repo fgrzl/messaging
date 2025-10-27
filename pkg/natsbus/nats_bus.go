@@ -230,6 +230,13 @@ func toSubj(r messaging.Route) string {
 		}
 		return fmt.Sprintf("%s.%s.%s.%s", r.Scope, tenantID, r.Area, r.Name)
 	}
+	if r.Scope == messaging.ScopeInbox {
+		inboxID := "*"
+		if r.ID != nil {
+			inboxID = r.ID.String()
+		}
+		return fmt.Sprintf("%s.%s.%s.%s", r.Scope, inboxID, r.Area, r.Name)
+	}
 	return fmt.Sprintf("%s.%s.%s", r.Scope, r.Area, r.Name)
 }
 
@@ -244,7 +251,8 @@ func decodeMessage[T polymorphic.Polymorphic](data []byte) (T, error) {
 	}
 	content, ok := env.Content.(T)
 	if !ok {
-		return *new(T), fmt.Errorf("unexpected type: %T", env.Discriminator)
+		var zero T
+		return zero, fmt.Errorf("unexpected discriminator %q", env.Discriminator)
 	}
 	return content, nil
 }

@@ -1,4 +1,4 @@
-﻿package natsbus
+package natsbus
 
 import (
 	"context"
@@ -69,6 +69,17 @@ func TestToSubj(t *testing.T) {
 	t.Run("ShouldFormatTenantRouteWithWildcard", func(t *testing.T) {
 		route := messaging.Route{Scope: messaging.ScopeTenant, Area: "orders", Name: "placed"}
 		assert.Equal(t, "tenant.*.orders.placed", toSubj(route))
+	})
+
+	t.Run("ShouldFormatInboxRouteWithID", func(t *testing.T) {
+		id := uuid.New()
+		route := messaging.NewInboxRoute("direct", "message", &id)
+		assert.Equal(t, "inbox."+id.String()+".direct.message", toSubj(route))
+	})
+
+	t.Run("ShouldFormatInboxRouteWithWildcard", func(t *testing.T) {
+		route := messaging.Route{Scope: messaging.ScopeInbox, Area: "direct", Name: "message"}
+		assert.Equal(t, "inbox.*.direct.message", toSubj(route))
 	})
 }
 
@@ -637,5 +648,154 @@ func TestNatsBusIntegration(t *testing.T) {
 
 		// Assert
 		assert.NoError(t, err)
+	})
+
+	t.Run("ShouldIsolateInboxMessagesByID", func(t *testing.T) {
+		// Arrange
+		getJWT, signFn := createTestJWTFunctions(t, broker)
+		bus, err := NewBus(broker.ClientURL(), getJWT, signFn)
+		require.NoError(t, err)
+		defer bus.Close()
+
+		nBus := bus.(*natsBus)
+
+		// Create two different inbox IDs
+		inbox1 := uuid.New()
+		inbox2 := uuid.New()
+
+		route1 := messaging.NewInboxRoute("chat", "message", &inbox1)
+		route2 := messaging.NewInboxRoute("chat", "message", &inbox2)
+
+		received1 := make(chan *testMessage, 5)
+		received2 := make(chan *testMessage, 5)
+
+		handler1 := func(ctx context.Context, msg messaging.Message) error {
+			if tm, ok := msg.(*testMessage); ok {
+				received1 <- tm
+			}
+			return nil
+		}
+
+		handler2 := func(ctx context.Context, msg messaging.Message) error {
+			if tm, ok := msg.(*testMessage); ok {
+				received2 <- tm
+			}
+			return nil
+		}
+
+		// Act - subscribe to both inboxes
+		sub1, err := nBus.Subscribe(route1, handler1)
+		require.NoError(t, err)
+		defer nBus.Unsubscribe(sub1)
+
+		sub2, err := nBus.Subscribe(route2, handler2)
+		require.NoError(t, err)
+		defer nBus.Unsubscribe(sub2)
+
+		// Send messages to inbox1
+		for i := 0; i < 3; i++ {
+			msg := &testMessage{ID: fmt.Sprintf("inbox1-%d", i), route: route1}
+			err = nBus.Notify(msg)
+			require.NoError(t, err)
+		}
+
+		// Send messages to inbox2
+		for i := 0; i < 2; i++ {
+			msg := &testMessage{ID: fmt.Sprintf("inbox2-%d", i), route: route2}
+			err = nBus.Notify(msg)
+			require.NoError(t, err)
+		}
+
+		// Assert - inbox1 should receive only its messages
+		time.Sleep(300 * time.Millisecond)
+		assert.Equal(t, 3, len(received1), "Inbox1 should receive 3 messages")
+		assert.Equal(t, 2, len(received2), "Inbox2 should receive 2 messages")
+
+		// Verify message IDs
+		for i := 0; i < 3; i++ {
+			msg := <-received1
+			assert.Contains(t, msg.ID, "inbox1-")
+		}
+		for i := 0; i < 2; i++ {
+			msg := <-received2
+			assert.Contains(t, msg.ID, "inbox2-")
+		}
+	})
+
+	t.Run("ShouldSupportInboxRequestResponse", func(t *testing.T) {
+		// Arrange
+		getJWT, signFn := createTestJWTFunctions(t, broker)
+		bus, err := NewBus(broker.ClientURL(), getJWT, signFn)
+		require.NoError(t, err)
+		defer bus.Close()
+
+		nBus := bus.(*natsBus)
+
+		inboxID := uuid.New()
+		route := messaging.NewInboxRoute("support", "ticket", &inboxID)
+
+		requestHandler := func(ctx context.Context, req messaging.Request) (messaging.Response, error) {
+			testReq := req.(*testRequest)
+			return &testResponse{ID: "ticket-response-" + testReq.ID}, nil
+		}
+
+		// Act
+		sub, err := nBus.SubscribeRequest(route, requestHandler)
+		require.NoError(t, err)
+		defer nBus.Unsubscribe(sub)
+
+		req := &testRequest{ID: "inbox-req-123", route: route}
+		resp, err := nBus.Request(req, 2*time.Second)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		testResp := resp.(*testResponse)
+		assert.Equal(t, "ticket-response-inbox-req-123", testResp.ID)
+	})
+
+	t.Run("ShouldSubscribeToWildcardInboxes", func(t *testing.T) {
+		// Arrange
+		getJWT, signFn := createTestJWTFunctions(t, broker)
+		bus, err := NewBus(broker.ClientURL(), getJWT, signFn)
+		require.NoError(t, err)
+		defer bus.Close()
+
+		nBus := bus.(*natsBus)
+
+		// Wildcard inbox route (ID is nil)
+		wildcardRoute := messaging.Route{Scope: messaging.ScopeInbox, Area: "notifications", Name: "alert"}
+
+		// Specific inbox routes
+		inbox1 := uuid.New()
+		inbox2 := uuid.New()
+		route1 := messaging.NewInboxRoute("notifications", "alert", &inbox1)
+		route2 := messaging.NewInboxRoute("notifications", "alert", &inbox2)
+
+		receivedWildcard := make(chan *testMessage, 10)
+		handlerWildcard := func(ctx context.Context, msg messaging.Message) error {
+			if tm, ok := msg.(*testMessage); ok {
+				receivedWildcard <- tm
+			}
+			return nil
+		}
+
+		// Act - subscribe to wildcard
+		sub, err := nBus.Subscribe(wildcardRoute, handlerWildcard)
+		require.NoError(t, err)
+		defer nBus.Unsubscribe(sub)
+
+		// Send to different inboxes
+		msg1 := &testMessage{ID: "wildcard-msg1", route: route1}
+		msg2 := &testMessage{ID: "wildcard-msg2", route: route2}
+
+		err = nBus.Notify(msg1)
+		require.NoError(t, err)
+		err = nBus.Notify(msg2)
+		require.NoError(t, err)
+
+		// Assert - wildcard subscriber should receive both
+		time.Sleep(300 * time.Millisecond)
+		assert.Equal(t, 2, len(receivedWildcard), "Wildcard subscriber should receive all inbox messages")
 	})
 }

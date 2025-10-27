@@ -33,8 +33,8 @@ type BrokerOptions struct {
 	// Environment: BROKER_WEB_SOCKET_PORT
 	WebSocketPort int
 
-	// MonitorPort defines the port for the WebSocket listener (default: 8222).
-	// Environment: BROKER_HTTP_PORT
+	// MonitorPort defines the port for the HTTP monitoring listener (default: 8222).
+	// Environment: BROKER_MONITOR_PORT
 	MonitorPort int
 
 	// CertFile specifies the path to the TLS certificate file.

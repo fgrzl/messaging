@@ -67,7 +67,7 @@ func (b *NatsBroker) Start(ctx context.Context) error {
 		return fmt.Errorf("NATS server readiness timeout")
 	}
 
-	slog.Info("NATS broker started",
+	slog.InfoContext(ctx, "NATS broker started",
 		slog.Int("websocket_port", b.options.WebSocketPort),
 		slog.Bool("tls_enabled", b.options.EnableTLS),
 	)
@@ -232,7 +232,7 @@ func fetchTrustedOperators(ctx context.Context, url string) ([]*jwt.OperatorClai
 				if err != nil {
 					return nil, fmt.Errorf("decode operator claims: %w", err)
 				}
-				slog.Info("Fetched trusted operator",
+				slog.InfoContext(ctx, "Fetched trusted operator",
 					slog.String("issuer", opClaims.Issuer),
 					slog.String("name", opClaims.Name))
 				return []*jwt.OperatorClaims{opClaims}, nil
