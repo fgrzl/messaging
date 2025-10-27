@@ -10,6 +10,18 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Test artifacts and coverage reports
+coverage
+coverage.txt
+coverage.html
+coverage.out
+*.coverprofile
+c.out
+profile.out
+*.test.log
+test-results/
+testdata/tmp/
+
 # Dependency directories (vendor/)
 vendor/
 
@@ -28,3 +40,6 @@ build/
 *.bak
 *.old
 .DS_Store
+coverage_broker
+coverage_bus
+natsbroker_coverage

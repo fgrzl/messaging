@@ -190,13 +190,41 @@ github.com/fgrzl/messaging/
     └── natsclaims/      # JWT claims utilities
 ```
 
+## Testing
+
+This library includes comprehensive unit and integration tests with behavioral naming patterns.
+
+### Running Tests
+
+**Fast (unit tests only)**:
+```bash
+go test -short ./... -cover
+```
+
+**Full (including integration tests)**:
+```bash
+# Integration tests use embedded NATS brokers and work best when run per-package
+go test ./pkg/natsbus -cover
+go test ./pkg/natsbroker -cover
+go test ./... -cover
+```
+
+**Coverage**: All packages maintain >75% test coverage:
+- `messaging`: 80.0%
+- `pkg/natsbroker`: 91.8%
+- `pkg/natsbus`: 75.9%
+- `pkg/natsclaims`: 100%
+- `test`: 91.7%
+
+See [docs/SPEC.md](docs/SPEC.md) for the complete behavioral specification.
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests for new functionality
-5. Run tests: `go test ./...`
+4. Add tests for new functionality (follow behavioral naming: `TestShouldDoSomethingWhenCondition`)
+5. Run tests: `go test -short ./...` (unit) or `go test ./...` (full)
 6. Submit a pull request
 
 ## License

@@ -43,9 +43,10 @@ func TestShouldNotifyMessageBusWithNATSBroker(t *testing.T) {
 		OperatorJWT:      mockCreds.OperatorJWT,
 		ReadinessTimeout: 15 * time.Second,
 		ShutdownTimeout:  10 * time.Second,
-		Host:             "localhost",
+		Host:             "127.0.0.1",
 		WebSocketPort:    9222,
 		MonitorPort:      8222,
+		EnableTLS:        false,
 	}
 	embedded := natsbroker.NewBroker(ctx, opts)
 	err = embedded.Start(ctx)
@@ -55,7 +56,7 @@ func TestShouldNotifyMessageBusWithNATSBroker(t *testing.T) {
 	})
 
 	// Connect NATS client to embedded broker
-	client, err := natsbus.NewBus("ws://localhost:9222", mockCreds.GetJWT, mockCreds.SignFn)
+	client, err := natsbus.NewBus("ws://127.0.0.1:9222", mockCreds.GetJWT, mockCreds.SignFn)
 	require.NoError(t, err)
 	defer client.Close()
 

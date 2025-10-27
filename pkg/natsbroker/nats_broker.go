@@ -93,6 +93,9 @@ func normalizeOptions(ctx context.Context, opt BrokerOptions) BrokerOptions {
 		opt.EnableTLS = false
 		slog.WarnContext(ctx, "Disabling TLS: missing cert or key file")
 	}
+	if opt.EnableTLS && opt.InsecureSkipVerify {
+		slog.WarnContext(ctx, "TLS certificate validation is disabled (InsecureSkipVerify=true) - NOT for production use")
+	}
 	if opt.ReadinessTimeout < time.Second {
 		opt.ReadinessTimeout = 5 * time.Second
 		slog.WarnContext(ctx, "ReadinessTimeout too short, using default", slog.Duration("timeout", opt.ReadinessTimeout))
@@ -118,7 +121,7 @@ func normalizeOptions(ctx context.Context, opt BrokerOptions) BrokerOptions {
 
 func configureWebSocket(opts *server.Options, options BrokerOptions) error {
 	if options.EnableTLS {
-		tlsConfig, err := loadTLS(options.CertFile, options.KeyFile)
+		tlsConfig, err := loadTLS(options.CertFile, options.KeyFile, options.InsecureSkipVerify)
 		if err != nil {
 			return fmt.Errorf("load TLS config: %w", err)
 		}
@@ -178,7 +181,7 @@ func buildAccountResolver(accountJWT, accountJWTURL string) (server.AccountResol
 	return nil, errors.New("no account resolver configured: either AccountJWT or AccountJWTURL must be provided")
 }
 
-func loadTLS(certFile, keyFile string) (*tls.Config, error) {
+func loadTLS(certFile, keyFile string, insecureSkipVerify bool) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
@@ -187,6 +190,7 @@ func loadTLS(certFile, keyFile string) (*tls.Config, error) {
 		Certificates:             []tls.Certificate{cert},
 		MinVersion:               tls.VersionTLS12,
 		PreferServerCipherSuites: true,
+		InsecureSkipVerify:       insecureSkipVerify,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,

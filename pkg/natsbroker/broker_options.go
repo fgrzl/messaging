@@ -8,17 +8,18 @@ import (
 )
 
 const (
-	envHost             = "BROKER_HOST"
-	envWebSocketPort    = "BROKER_WEB_SOCKET_PORT"
-	envMonitorPort      = "BROKER_MONITOR_PORT"
-	envCertFile         = "BROKER_CERT_FILE"
-	envKeyFile          = "BROKER_KEY_FILE"
-	envOperatorJWT      = "BROKER_OPERATOR_JWT"
-	envOperatorJWTURL   = "BROKER_OPERATOR_JWT_URL"
-	envAccountJWT       = "BROKER_ACCOUNT_JWT"
-	envAccountJWTURL    = "BROKER_ACCOUNT_JWT_URL"
-	envReadinessTimeout = "BROKER_READINESS_TIMEOUT"
-	envShutdownTimeout  = "BROKER_SHUTDOWN_TIMEOUT"
+	envHost               = "BROKER_HOST"
+	envWebSocketPort      = "BROKER_WEB_SOCKET_PORT"
+	envMonitorPort        = "BROKER_MONITOR_PORT"
+	envCertFile           = "BROKER_CERT_FILE"
+	envKeyFile            = "BROKER_KEY_FILE"
+	envInsecureSkipVerify = "BROKER_INSECURE_SKIP_VERIFY"
+	envOperatorJWT        = "BROKER_OPERATOR_JWT"
+	envOperatorJWTURL     = "BROKER_OPERATOR_JWT_URL"
+	envAccountJWT         = "BROKER_ACCOUNT_JWT"
+	envAccountJWTURL      = "BROKER_ACCOUNT_JWT_URL"
+	envReadinessTimeout   = "BROKER_READINESS_TIMEOUT"
+	envShutdownTimeout    = "BROKER_SHUTDOWN_TIMEOUT"
 )
 
 // BrokerOptions configures the embedded NATS broker.
@@ -46,6 +47,11 @@ type BrokerOptions struct {
 
 	// EnableTLS enables TLS if both CertFile and KeyFile are provided.
 	EnableTLS bool
+
+	// InsecureSkipVerify skips TLS certificate validation (for local development with self-signed certs).
+	// WARNING: Do not use in production environments.
+	// Environment: BROKER_INSECURE_SKIP_VERIFY
+	InsecureSkipVerify bool
 
 	// OperatorJWT provides an inline operator JWT used to establish trust.
 	// Environment: BROKER_OPERATOR_JWT
@@ -78,6 +84,11 @@ func GetDefaultOptions() BrokerOptions {
 	keyFile := os.Getenv(envKeyFile)
 	enableTLS := certFile != "" && keyFile != ""
 
+	insecureSkipVerify := false
+	if s := os.Getenv(envInsecureSkipVerify); s != "" {
+		insecureSkipVerify = s == "true" || s == "1"
+	}
+
 	readiness := 5 * time.Second
 	if s := os.Getenv(envReadinessTimeout); s != "" {
 		if d, err := time.ParseDuration(s); err == nil {
@@ -93,18 +104,19 @@ func GetDefaultOptions() BrokerOptions {
 	}
 
 	return BrokerOptions{
-		Host:             getEnvOrDefault(envHost, "localhost"),
-		WebSocketPort:    getEnvOrDefaultInt(envWebSocketPort, 9222),
-		MonitorPort:      getEnvOrDefaultInt(envMonitorPort, 8222),
-		CertFile:         certFile,
-		KeyFile:          keyFile,
-		EnableTLS:        enableTLS,
-		OperatorJWT:      os.Getenv(envOperatorJWT),
-		OperatorJWTURL:   os.Getenv(envOperatorJWTURL),
-		AccountJWT:       os.Getenv(envAccountJWT),
-		AccountJWTURL:    os.Getenv(envAccountJWTURL),
-		ReadinessTimeout: readiness,
-		ShutdownTimeout:  shutdown,
+		Host:               getEnvOrDefault(envHost, "localhost"),
+		WebSocketPort:      getEnvOrDefaultInt(envWebSocketPort, 9222),
+		MonitorPort:        getEnvOrDefaultInt(envMonitorPort, 8222),
+		CertFile:           certFile,
+		KeyFile:            keyFile,
+		EnableTLS:          enableTLS,
+		InsecureSkipVerify: insecureSkipVerify,
+		OperatorJWT:        os.Getenv(envOperatorJWT),
+		OperatorJWTURL:     os.Getenv(envOperatorJWTURL),
+		AccountJWT:         os.Getenv(envAccountJWT),
+		AccountJWTURL:      os.Getenv(envAccountJWTURL),
+		ReadinessTimeout:   readiness,
+		ShutdownTimeout:    shutdown,
 	}
 }
 
