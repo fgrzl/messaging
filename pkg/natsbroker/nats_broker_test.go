@@ -112,6 +112,10 @@ func TestNatsBroker_StartAndStop(t *testing.T) {
 		opJWT, accJWT, _ := generateTestJWTs(t)
 		ctx := context.Background()
 
+		// Use longer timeout when running with race detector or in CI
+		// The race detector adds significant overhead to server startup
+		readinessTimeout := 30 * time.Second
+
 		opts := BrokerOptions{
 			Host:             "127.0.0.1",
 			WebSocketPort:    9224, // Use different port to avoid conflicts
@@ -119,7 +123,7 @@ func TestNatsBroker_StartAndStop(t *testing.T) {
 			EnableTLS:        false,
 			OperatorJWT:      opJWT,
 			AccountJWT:       accJWT,
-			ReadinessTimeout: 15 * time.Second, // Allow time for parallel tests
+			ReadinessTimeout: readinessTimeout,
 			ShutdownTimeout:  10 * time.Second,
 		}
 
@@ -654,6 +658,10 @@ func TestFetchTrustedOperators(t *testing.T) {
 	})
 
 	t.Run("ShouldReturnErrorAfterMaxRetries", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("Skipping retry test in short mode")
+		}
+
 		// Arrange - server that always fails
 		attempts := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -262,11 +262,13 @@ func fetchTrustedOperators(ctx context.Context, url string, httpClient *http.Cli
 				slog.Int("attempt", attempt),
 				slog.String("error", err.Error()))
 		} else {
-			defer resp.Body.Close()
+			// Read and close response body immediately
+			body, readErr := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
 			if resp.StatusCode == http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("read operator JWT: %w", err)
+				if readErr != nil {
+					return nil, fmt.Errorf("read operator JWT: %w", readErr)
 				}
 				opClaims, err := jwt.DecodeOperatorClaims(string(body))
 				if err != nil {
