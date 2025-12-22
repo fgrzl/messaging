@@ -46,7 +46,7 @@ require (
 	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/minio/highwayhash v1.0.4-0.20251030100505-070ab1a87a76 // indirect
 	github.com/nats-io/jwt/v2 v2.8.0
-	github.com/nats-io/nats.go v1.47.0
+	github.com/nats-io/nats.go v1.48.0
 	github.com/nats-io/nkeys v0.4.12
 	github.com/nats-io/nuid v1.0.1 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
