@@ -1,4 +1,4 @@
-name: Publish
+name: Pre-Release
 
 on:
   workflow_dispatch:
@@ -8,39 +8,34 @@ permissions:
   packages: read
 
 jobs:
-  build:
-    name: Build and Test
-    uses: ./.github/workflows/ci.yml
-    secrets: inherit
-
-  publish:
-    name: Publish and Notify Go Proxy
-    needs: build
+  TagAndPublish:
+    name: Tag and Notify Go Proxy
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
       - name: Checkout Full History
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4.1.0
+        uses: gittools/actions/gitversion/setup@v4.2.0
 
       - name: Calculate Version
         id: version
-        uses: gittools/actions/gitversion/execute@v4.1.0
+        uses: gittools/actions/gitversion/execute@v4.2.0
 
       - name: Tag Commit
-        uses: fgrzl/actions/tag-commit@v0.0.5
+        uses: fgrzl/actions/tag-commit@v0.0.6
         with:
           tag: ${{ steps.version.outputs.semVer }}
 
       - name: Notify Go Proxy
-        uses: fgrzl/actions/notify-go-proxy@v0.0.5
+        uses: fgrzl/actions/notify-go-proxy@v0.0.6
         with:
           tag: ${{ steps.version.outputs.semVer }}
 
       - name: Prune Pre-release Tags
-        uses: fgrzl/actions/prune-tags@v0.0.5
+        uses: fgrzl/actions/prune-tags@v0.0.6
+
