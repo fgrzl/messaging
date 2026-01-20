@@ -14,6 +14,7 @@ A Go library for building scalable messaging applications with support for both 
 - **Multi-Tenant Support**: Scope-based routing for tenant isolation
 - **Message Tracing**: Built-in correlation and causation ID support
 - **Processor Framework**: Lifecycle management for message processors
+- **Automatic Reconnection**: Subscription health monitoring with exponential backoff recovery
 
 ## Installation
 
@@ -194,6 +195,34 @@ Messages are routed using scopes that provide different levels of isolation:
 - **Internal**: Private service-to-service messages
 - **Tenant**: Messages scoped to a specific tenant
 - **Inbox**: Direct messages to a specific recipient
+
+### Automatic Reconnection
+
+The NATS message bus implementation includes robust subscription recovery:
+
+**Connection-Level Recovery**:
+- Automatically reconnects to NATS server when connection is lost
+- Re-establishes all subscriptions after reconnection
+- Configurable reconnect wait time (default: 2 seconds)
+- Unlimited reconnection attempts
+
+**Subscription-Level Recovery**:
+- Monitors individual subscriptions for unexpected closure
+- Implements exponential backoff (1s → 2s → 4s → ... → 30s max)
+- Automatically re-registers message and request handlers
+- Preserves queue group membership for load-balanced workers
+- Up to 10 retry attempts per subscription
+
+**Configuration**:
+```go
+// Reconnection parameters (in pkg/natsbus/nats_bus.go)
+maxReconnectAttempts = 10
+initialBackoff       = 1 * time.Second
+maxBackoff           = 30 * time.Second
+backoffMultiplier    = 2.0
+```
+
+This ensures that SSO login handlers, message processors, and other critical subscriptions remain available even when NATS connections experience temporary issues or heartbeat timeouts.
 
 ### Package Structure
 

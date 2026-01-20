@@ -15,6 +15,14 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+const (
+	// Reconnection backoff configuration
+	maxReconnectAttempts = 10
+	initialBackoff       = 1 * time.Second
+	maxBackoff           = 30 * time.Second
+	backoffMultiplier    = 2.0
+)
+
 var (
 	_ messaging.MessageBus   = &natsBus{}
 	_ messaging.Subscription = &subscription{}
@@ -41,8 +49,11 @@ func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) 
 }
 
 func connectWithOptions(endpoint string, auth nats.Option) (messaging.MessageBus, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	bus := &natsBus{
 		subscriptions: make(map[uuid.UUID]*subscriptionInfo),
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 
 	opts := []nats.Option{
@@ -81,6 +92,8 @@ type natsBus struct {
 	conn          *nats.Conn
 	subscriptions map[uuid.UUID]*subscriptionInfo
 	mu            sync.RWMutex
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 func (b *natsBus) Notify(msg messaging.Message) error {
@@ -168,14 +181,18 @@ func (b *natsBus) SubscribeWithOptions(route messaging.Route, handler messaging.
 	s := &subscription{id: uuid.New(), sub: sub}
 
 	// Track subscription for reconnection
-	b.mu.Lock()
-	b.subscriptions[s.id] = &subscriptionInfo{
+	info := &subscriptionInfo{
 		route:          route,
 		queueGroup:     queue,
 		messageHandler: handler,
 		isRequest:      false,
 	}
+	b.mu.Lock()
+	b.subscriptions[s.id] = info
 	b.mu.Unlock()
+
+	// Start monitoring for unexpected closure
+	s.startMonitoring(b.ctx, b, info)
 
 	return s, nil
 }
@@ -195,13 +212,17 @@ func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.Requ
 	s := &subscription{id: uuid.New(), sub: sub}
 
 	// Track subscription for reconnection
-	b.mu.Lock()
-	b.subscriptions[s.id] = &subscriptionInfo{
+	info := &subscriptionInfo{
 		route:          route,
 		requestHandler: handler,
 		isRequest:      true,
 	}
+	b.mu.Lock()
+	b.subscriptions[s.id] = info
 	b.mu.Unlock()
+
+	// Start monitoring for unexpected closure
+	s.startMonitoring(b.ctx, b, info)
 
 	return s, nil
 }
@@ -263,8 +284,106 @@ func (b *natsBus) Unsubscribe(sub messaging.Subscription) error {
 
 func (b *natsBus) Close() error {
 	slog.Info("Closing NATS connection")
+	// Cancel all monitoring goroutines
+	if b.cancel != nil {
+		b.cancel()
+	}
 	b.conn.Close()
 	return nil
+}
+
+// recoverSubscription attempts to re-establish a single subscription with exponential backoff.
+func (b *natsBus) recoverSubscription(subID uuid.UUID, info *subscriptionInfo) {
+	go func() {
+		backoff := initialBackoff
+		for attempt := 1; attempt <= maxReconnectAttempts; attempt++ {
+			select {
+			case <-b.ctx.Done():
+				// Bus is shutting down, stop recovery attempts
+				slog.Info("Stopping subscription recovery due to bus shutdown",
+					slog.String("route", toSubj(info.route)),
+				)
+				return
+			default:
+			}
+
+			slog.Info("Attempting to recover subscription",
+				slog.String("route", toSubj(info.route)),
+				slog.Int("attempt", attempt),
+				slog.Duration("backoff", backoff),
+			)
+
+			// Wait before retry (except first attempt)
+			if attempt > 1 {
+				select {
+				case <-time.After(backoff):
+				case <-b.ctx.Done():
+					return
+				}
+			}
+
+			// Attempt to recreate subscription
+			var (
+				sub *nats.Subscription
+				err error
+			)
+			subj := toSubj(info.route)
+
+			if info.isRequest {
+				sub, err = b.conn.Subscribe(subj, func(msg *nats.Msg) {
+					b.handleRequest(msg, info.requestHandler)
+				})
+			} else {
+				if info.queueGroup != "" {
+					sub, err = b.conn.QueueSubscribe(subj, info.queueGroup, func(msg *nats.Msg) {
+						b.handleMessage(msg, info.messageHandler)
+					})
+				} else {
+					sub, err = b.conn.Subscribe(subj, func(msg *nats.Msg) {
+						b.handleMessage(msg, info.messageHandler)
+					})
+				}
+			}
+
+			if err != nil {
+				slog.Error("Failed to recover subscription",
+					slog.String("route", subj),
+					slog.Int("attempt", attempt),
+					slog.Any("error", err),
+				)
+
+				// Calculate next backoff
+				backoff = time.Duration(float64(backoff) * backoffMultiplier)
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+				continue
+			}
+
+			// Success - update the subscription reference and restart monitoring
+			slog.Info("Successfully recovered subscription",
+				slog.String("route", subj),
+				slog.Int("attempt", attempt),
+			)
+
+			// Create new subscription wrapper with monitoring
+			newSub := &subscription{id: subID, sub: sub}
+			newSub.startMonitoring(b.ctx, b, info)
+
+			return
+		}
+
+		// All retry attempts exhausted
+		slog.Error("Failed to recover subscription after all attempts",
+			slog.String("route", toSubj(info.route)),
+			slog.Int("max_attempts", maxReconnectAttempts),
+		)
+
+		// Remove from tracking since we can't recover it
+		b.mu.Lock()
+		delete(b.subscriptions, subID)
+		b.mu.Unlock()
+	}()
 }
 
 // resubscribeAll re-establishes all tracked subscriptions after reconnection.
