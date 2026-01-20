@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,15 +38,19 @@ func TestShouldNotifyMessageBusWithNATSBroker(t *testing.T) {
 	mockCreds, err := GenerateMockTrustedOperatorSetup()
 	require.NoError(t, err)
 
-	// Start embedded broker
+	// Start embedded broker with high port numbers to reduce conflicts
+	// Using fixed ports but in a high range to avoid common service ports
+	wsPort := 19222 + (time.Now().Unix() % 1000)      // Range: 19222-20222
+	monitorPort := 18222 + (time.Now().Unix() % 1000) // Range: 18222-19222
+
 	opts := natsbroker.BrokerOptions{
 		AccountJWT:       mockCreds.AccountJWT,
 		OperatorJWT:      mockCreds.OperatorJWT,
 		ReadinessTimeout: 30 * time.Second, // Generous timeout for Windows + race detector
 		ShutdownTimeout:  10 * time.Second,
 		Host:             "127.0.0.1",
-		WebSocketPort:    9222,
-		MonitorPort:      8222,
+		WebSocketPort:    int(wsPort),
+		MonitorPort:      int(monitorPort),
 		EnableTLS:        false,
 	}
 	embedded := natsbroker.NewBroker(ctx, opts)
@@ -55,8 +60,13 @@ func TestShouldNotifyMessageBusWithNATSBroker(t *testing.T) {
 		_ = embedded.Stop(ctx)
 	})
 
+	// Get the actual port (should match what we configured)
+	actualWSPort := embedded.GetWebSocketPort()
+	t.Logf("NATS broker started on ws://127.0.0.1:%d", actualWSPort)
+
 	// Connect NATS client to embedded broker
-	client, err := natsbus.NewBus("ws://127.0.0.1:9222", mockCreds.GetJWT, mockCreds.SignFn)
+	wsURL := fmt.Sprintf("ws://127.0.0.1:%d", actualWSPort)
+	client, err := natsbus.NewBus(wsURL, mockCreds.GetJWT, mockCreds.SignFn)
 	require.NoError(t, err)
 	defer client.Close()
 

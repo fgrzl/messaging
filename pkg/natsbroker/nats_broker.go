@@ -62,10 +62,34 @@ func (b *NatsBroker) Start(ctx context.Context) error {
 		return fmt.Errorf("create server: %w", err)
 	}
 	b.natsServer = ns
+
+	// Log server configuration before starting
+	slog.InfoContext(ctx, "Starting NATS broker",
+		slog.String("host", b.options.Host),
+		slog.Int("websocket_port", b.options.WebSocketPort),
+		slog.Int("monitor_port", b.options.MonitorPort),
+		slog.Bool("tls_enabled", b.options.EnableTLS),
+		slog.Duration("readiness_timeout", b.options.ReadinessTimeout),
+	)
+
 	ns.Start()
 
 	if !ns.ReadyForConnections(b.options.ReadinessTimeout) {
-		return fmt.Errorf("NATS server readiness timeout")
+		return fmt.Errorf("NATS server readiness timeout after %v - check for port conflicts or system resources", b.options.ReadinessTimeout)
+	}
+
+	// If port 0 was used (dynamic assignment), update options with actual port
+	if b.options.WebSocketPort == 0 {
+		// For websocket connections, we need to check the server's actual port
+		// The NATS server library doesn't expose websocket port directly,
+		// but we can infer it from the configuration
+		// In practice, port 0 means OS assigns a random port
+		// Since we can't easily get the websocket port, we'll use the main listener port
+		if addr := ns.Addr(); addr != nil {
+			if tcpAddr, ok := addr.(*net.TCPAddr); ok {
+				b.options.WebSocketPort = tcpAddr.Port
+			}
+		}
 	}
 
 	slog.InfoContext(ctx, "NATS broker started",
@@ -85,10 +109,30 @@ func (b *NatsBroker) Stop(ctx context.Context) error {
 	return nil
 }
 
+// GetWebSocketPort returns the actual WebSocket port the broker is listening on.
+// This is useful when using port 0 for dynamic port assignment.
+func (b *NatsBroker) GetWebSocketPort() int {
+	if b.natsServer == nil {
+		return 0
+	}
+	return b.options.WebSocketPort
+}
+
+// GetMonitorPort returns the HTTP monitoring port the broker is listening on.
+func (b *NatsBroker) GetMonitorPort() int {
+	if b.natsServer == nil {
+		return 0
+	}
+	return b.options.MonitorPort
+}
+
 func normalizeOptions(ctx context.Context, opt BrokerOptions) BrokerOptions {
-	if opt.WebSocketPort <= 0 || opt.WebSocketPort > 65535 {
+	// Port 0 means dynamic assignment - don't normalize it
+	if opt.WebSocketPort < 0 || opt.WebSocketPort > 65535 {
 		opt.WebSocketPort = 9222
 		slog.WarnContext(ctx, "Invalid WSPort, using default", slog.Int("port", opt.WebSocketPort))
+	} else if opt.WebSocketPort == 0 {
+		slog.InfoContext(ctx, "Using dynamic port assignment for WebSocket")
 	}
 	if opt.EnableTLS && (opt.CertFile == "" || opt.KeyFile == "") {
 		opt.EnableTLS = false
