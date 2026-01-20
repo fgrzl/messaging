@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/fgrzl/claims"
@@ -19,6 +20,15 @@ var (
 	_ messaging.Subscription = &subscription{}
 )
 
+// subscriptionInfo holds the details needed to recreate a subscription after reconnect.
+type subscriptionInfo struct {
+	route          messaging.Route
+	queueGroup     string
+	messageHandler messaging.MessageHandler
+	requestHandler messaging.RequestHandler
+	isRequest      bool
+}
+
 // NewBus returns a new NATS message bus connection with JWT-based authentication.
 func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) ([]byte, error)) (messaging.MessageBus, error) {
 	return connectWithOptions(
@@ -31,6 +41,10 @@ func NewBus(endpoint string, getJWT func() (string, error), signFn func([]byte) 
 }
 
 func connectWithOptions(endpoint string, auth nats.Option) (messaging.MessageBus, error) {
+	bus := &natsBus{
+		subscriptions: make(map[uuid.UUID]*subscriptionInfo),
+	}
+
 	opts := []nats.Option{
 		auth,
 		nats.MaxReconnects(-1),
@@ -42,6 +56,7 @@ func connectWithOptions(endpoint string, auth nats.Option) (messaging.MessageBus
 			} else {
 				slog.Info("Reconnected to NATS")
 			}
+			bus.resubscribeAll()
 		}),
 		nats.DisconnectErrHandler(func(c *nats.Conn, err error) {
 			if c != nil {
@@ -58,11 +73,14 @@ func connectWithOptions(endpoint string, auth nats.Option) (messaging.MessageBus
 		return nil, err
 	}
 
-	return &natsBus{conn: conn}, nil
+	bus.conn = conn
+	return bus, nil
 }
 
 type natsBus struct {
-	conn *nats.Conn
+	conn          *nats.Conn
+	subscriptions map[uuid.UUID]*subscriptionInfo
+	mu            sync.RWMutex
 }
 
 func (b *natsBus) Notify(msg messaging.Message) error {
@@ -147,7 +165,19 @@ func (b *natsBus) SubscribeWithOptions(route messaging.Route, handler messaging.
 		return nil, err
 	}
 
-	return &subscription{sub: sub}, nil
+	s := &subscription{id: uuid.New(), sub: sub}
+
+	// Track subscription for reconnection
+	b.mu.Lock()
+	b.subscriptions[s.id] = &subscriptionInfo{
+		route:          route,
+		queueGroup:     queue,
+		messageHandler: handler,
+		isRequest:      false,
+	}
+	b.mu.Unlock()
+
+	return s, nil
 }
 
 func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.RequestHandler) (messaging.Subscription, error) {
@@ -162,7 +192,18 @@ func (b *natsBus) SubscribeRequest(route messaging.Route, handler messaging.Requ
 		return nil, err
 	}
 
-	return &subscription{sub: sub}, nil
+	s := &subscription{id: uuid.New(), sub: sub}
+
+	// Track subscription for reconnection
+	b.mu.Lock()
+	b.subscriptions[s.id] = &subscriptionInfo{
+		route:          route,
+		requestHandler: handler,
+		isRequest:      true,
+	}
+	b.mu.Unlock()
+
+	return s, nil
 }
 
 func (b *natsBus) handleMessage(msg *nats.Msg, handler messaging.MessageHandler) {
@@ -211,6 +252,12 @@ func (b *natsBus) Unsubscribe(sub messaging.Subscription) error {
 	if err != nil {
 		slog.Warn("Failed to unsubscribe", slog.Any("error", err))
 	}
+
+	// Remove from tracking
+	b.mu.Lock()
+	delete(b.subscriptions, sub.GetID())
+	b.mu.Unlock()
+
 	return err
 }
 
@@ -218,6 +265,54 @@ func (b *natsBus) Close() error {
 	slog.Info("Closing NATS connection")
 	b.conn.Close()
 	return nil
+}
+
+// resubscribeAll re-establishes all tracked subscriptions after reconnection.
+func (b *natsBus) resubscribeAll() {
+	b.mu.RLock()
+	count := len(b.subscriptions)
+	infos := make([]*subscriptionInfo, 0, count)
+	for _, info := range b.subscriptions {
+		infos = append(infos, info)
+	}
+	b.mu.RUnlock()
+
+	if count == 0 {
+		return
+	}
+
+	slog.Info("Re-establishing subscriptions", slog.Int("count", count))
+
+	for _, info := range infos {
+		var err error
+		subj := toSubj(info.route)
+
+		if info.isRequest {
+			_, err = b.conn.Subscribe(subj, func(msg *nats.Msg) {
+				b.handleRequest(msg, info.requestHandler)
+			})
+			if err != nil {
+				slog.Error("Failed to re-subscribe to request", slog.String("route", subj), slog.Any("error", err))
+			} else {
+				slog.Info("Re-subscribed to request", slog.String("route", subj))
+			}
+		} else {
+			if info.queueGroup != "" {
+				_, err = b.conn.QueueSubscribe(subj, info.queueGroup, func(msg *nats.Msg) {
+					b.handleMessage(msg, info.messageHandler)
+				})
+			} else {
+				_, err = b.conn.Subscribe(subj, func(msg *nats.Msg) {
+					b.handleMessage(msg, info.messageHandler)
+				})
+			}
+			if err != nil {
+				slog.Error("Failed to re-subscribe to message", slog.String("route", subj), slog.Any("error", err))
+			} else {
+				slog.Info("Re-subscribed to message", slog.String("route", subj), slog.String("queueGroup", info.queueGroup))
+			}
+		}
+	}
 }
 
 // --- Helpers ---
