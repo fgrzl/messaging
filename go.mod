@@ -8,7 +8,7 @@ require (
 	github.com/fgrzl/telemetry v0.1.0-alpha.9
 	github.com/google/uuid v1.6.0
 	github.com/nats-io/jwt/v2 v2.8.0
-	github.com/nats-io/nats-server/v2 v2.12.3
+	github.com/nats-io/nats-server/v2 v2.12.4
 	github.com/nats-io/nats.go v1.48.0
 	github.com/nats-io/nkeys v0.4.12
 	github.com/stretchr/testify v1.11.1
