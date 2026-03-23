@@ -7,10 +7,10 @@ require (
 	github.com/fgrzl/json v0.1.0-alpha.62
 	github.com/fgrzl/telemetry v0.1.0-alpha.9
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/jwt/v2 v2.8.0
+	github.com/nats-io/jwt/v2 v2.8.1
 	github.com/nats-io/nats-server/v2 v2.12.3
 	github.com/nats-io/nats.go v1.48.0
-	github.com/nats-io/nkeys v0.4.12
+	github.com/nats-io/nkeys v0.4.15
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -37,10 +37,10 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.39.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
-	golang.org/x/crypto v0.47.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260120174246-409b4a993575 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120174246-409b4a993575 // indirect
