@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/fgrzl/claims v0.0.1-alpha.22
-	github.com/fgrzl/json v0.1.0-alpha.62
+	github.com/fgrzl/json v1.0.0-alpha.8
 	github.com/fgrzl/telemetry v0.1.0-alpha.9
 	github.com/google/uuid v1.6.0
 	github.com/nats-io/jwt/v2 v2.8.0
